@@ -1,213 +1,96 @@
-# 3D Image Stamping Editor
+# 3D Tattoo Stamping Demo
 
-A React-based 3D image stamping application built with Three.js. Select a pre-loaded image and place it on a 3D tube mesh with interactive resizing, manipulation, and context menu controls.
+Interactive 3D tattoo editor built with React and Three.js.
+Place image stamps on a 3D arm mesh, manipulate them with in-scene controls, and render the result directly in texture space.
+
+## Author
+
+**All 3D modeling and all default tattoo images in this project were created by me as a modeller and tattoo artist.**
+Instagram: **[@mfecanics](https://instagram.com/mfecanics)**
 
 ## Live Demo
 
-**https://mfecane.github.io/stamp-demo/**
+`https://mfecane.github.io/tattoo-editor-demo/`
 
-## Features
+Open in a desktop browser with mouse input for the full interaction experience.
 
-### Core Functionality
-- **Image Selection**: Click on the pre-loaded image in the GUI panel to activate stamp placement
-- **3D Placement**: Click on the tube mesh to place stamps at precise UV coordinates
-- **Interactive Widgets**: Visual widgets with X and Y axes for resizing, aligned with image orientation in 3D space
-- **Context Menu**: Right-click or select stamps to access actions (delete, maximize, etc.)
+## What This Demo Showcases
 
-### Interaction Modes
-The application automatically switches between interaction modes based on what you click:
+- **3D interaction design**: mesh selection, image placement, transform tools
+- **UV-space stamping**: converting 3D hit points into UV coordinates and compositing into texture space
+- **Deformation tools**: custom lattice-based deformation driven by brush tools
+- **Deterministic command history**: command-driven editing with undo/redo
+- **React ↔ Three.js coordination**: shared state between React UI and a Three.js runtime
 
-- **Resize Mode**: Click and drag widget axis colliders to resize stamps along X or Y axis
-- **Orbit Mode**: Click and drag on empty space to orbit the camera around the scene
-- **Selection Mode**: Click on stamps to select them and show the context menu
-- **Drag Mode**: Move stamps on the surface (when implemented)
+## Core Features
 
-### Advanced Features
-- **Hover States**: Visual feedback when hovering over interactive elements
-- **Hit Testing**: Priority-based raycasting (resize handles → widget body → image handle → mesh)
-- **Canvas-Based Textures**: Dynamic texture updates using HTML5 Canvas
-- **Camera Controls**: Smooth camera manipulation with automatic matrix updates
+- **Stamp placement**: drag an image from the side panel and drop it on the arm mesh
+- **Stamp manipulation**: move, rotate, and scale stamps using in-scene gizmos
+- **Local deformation**: brush-based lattice editing for sculpting tattoos around anatomy
+- **History-aware editing**: undo/redo support for all editing operations
+- **Texture-space updates**: real-time texture updates so every edit is immediately visible on the model
+- **Client-only demo**: runtime-only session with no backend persistence
 
 ## Tech Stack
 
-- **React 18** - UI framework
-- **Three.js** - 3D rendering and scene management
-- **TypeScript** - Type safety
-- **Zustand** - State management (composed stores pattern)
-- **Vite** - Build tool and dev server
-- **Tailwind CSS** - Styling
-- **shadcn/ui** - UI component library
-- **Lucide React** - Icon library
+- React + TypeScript
+- Three.js
+- Zustand
+- Vite
+- Tailwind CSS + shadcn/ui
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (v18 or higher)
-- npm or yarn
+- Node.js (18+ recommended)
+- npm or a compatible package manager
 
-### Installation
+### Install & Run (Development)
 
 ```bash
 npm install
-```
-
-### Development
-
-```bash
 npm run dev
 ```
 
-The application will be available at `http://localhost:5173` (or the port Vite assigns).
+The app runs on `http://localhost:5173` (or the next available Vite port).
 
-### Build
+### Build for Production
 
 ```bash
 npm run build
 ```
 
-### Preview Production Build
+## Project Layout (Essential)
 
-```bash
-npm run preview
+```text
+src/editor/components/   # React UI for editor panels and controls
+src/editor/main/         # Core editor runtime (controller, project, commands)
+src/editor/lib/lattice/  # Lattice geometry and projection logic
+src/editor/services/     # Texture/stamp rendering services
+src/editor/store/        # Zustand editor state
 ```
 
-### Linting
+## Architecture Overview
 
-```bash
-npm run lint
-```
+- `src/editor/main` is the orchestration layer that connects interaction tools, command history, and project state.
+- `src/editor/services` contains texture-related operations (stamping, compositing, and propagating updates to materials).
+- `src/editor/lib/lattice` implements deformation math and brush-driven control point updates.
+- Shared state lives in Zustand so React components stay focused on presentation and user interaction while the Three.js runtime manages the scene.
 
-## Project Structure
+## Typical Editing Flow
 
-```
-src/
-├── components/          # React components
-│   ├── GuiPanel.tsx           # Main UI panel for image selection
-│   ├── ThreeScene.tsx         # Three.js scene setup and rendering
-│   ├── StampContextMenu.tsx   # Context menu for stamp actions
-│   └── ui/                    # Reusable UI components (shadcn/ui)
-├── interaction/         # Interaction system
-│   ├── InteractionManager.ts  # Main interaction coordinator
-│   ├── Tool.ts                # Base tool interface
-│   ├── ToolFactory.ts         # Factory for creating tools
-│   ├── hitTesting.ts          # Raycasting and hit detection
-│   ├── HoverStateManager.ts   # Manages hover states
-│   ├── utils/                 # Interaction utilities
-│   │   ├── cameraUpdates.ts   # Camera matrix updates
-│   │   ├── eventNormalization.ts
-│   │   └── mousePosition.ts
-│   └── tools/                 # Tool implementations
-│       ├── DragTool.ts
-│       ├── OrbitTool.ts
-│       ├── ResizeTool.ts
-│       ├── SelectionTool.ts
-│       └── constants.ts
-├── lib/                # Utilities and helpers
-│   ├── geometries.ts   # Custom Three.js geometries
-│   ├── utils.ts        # General utilities (worldToScreen, etc.)
-│   ├── widget.ts       # Widget rendering and hit testing
-│   └── handle.ts       # Handle rendering utilities
-├── services/           # Service classes
-│   ├── CanvasRenderer.ts      # Canvas-based texture rendering
-│   └── SceneInitializer.ts    # Scene setup and initialization
-├── store/              # State management (Zustand)
-│   ├── composedStore.ts       # Composed store aggregator
-│   ├── editorStore.ts         # Main editor store (composed)
-│   ├── sceneStore.ts          # Scene state (camera, renderer, etc.)
-│   ├── stampStore.ts          # Stamp state and operations
-│   ├── textureStore.ts        # Texture and canvas state
-│   └── widgetStore.ts         # Widget state and creation
-├── App.tsx             # Main app component
-└── main.tsx            # Entry point
-```
-
-## Usage
-
-### Basic Workflow
-
-1. **Activate Stamp Placement**: 
-   - Click on the stamp image in the GUI panel
-   - The image will be activated and ready for placement
-
-2. **Place a Stamp**: 
-   - Once an image is loaded, click anywhere on the tube mesh
-   - The stamp will be placed at the clicked location using UV coordinates
-   - A widget will appear at the placement point
-
-3. **Resize a Stamp**: 
-   - Click and drag the widget axis handles (X or Y) to resize
-   - The stamp will resize proportionally along the selected axis
-
-4. **Select a Stamp**: 
-   - Click on a placed stamp to select it
-   - A context menu will appear with available actions
-
-5. **Navigate the Scene**: 
-   - Click and drag on empty space to orbit the camera
-   - Use mouse wheel to zoom (if implemented)
-
-### Context Menu Actions
-
-When a stamp is selected, you can:
-- **Delete**: Remove the stamp from the scene
-- **Maximize**: Expand the stamp to full size (when implemented)
-- **Close**: Deselect the stamp
-
-## Architecture
-
-### State Management
-
-The application uses a **composed store pattern** with Zustand:
-- Individual stores for different concerns (scene, stamp, texture, widget)
-- `composedStore.ts` aggregates all stores into a single `useEditorStore` hook
-- Stores are organized by domain for better maintainability
-
-### Interaction System
-
-The interaction system uses a **tool-based architecture**:
-- `InteractionManager` coordinates all interactions
-- Tools are created dynamically via `ToolFactory` based on hit test results
-- Each tool implements the `Tool` interface with `onPointerDown`, `onPointerMove`, `onPointerUp`
-- Tools automatically activate/deactivate based on user actions
-
-### Hit Testing Priority
-
-Hit tests are performed in this order:
-1. Resize handles (widget axis colliders)
-2. Widget body
-3. Image handle (stamp selection)
-4. Selectable objects (tube mesh)
-5. Empty space
-
-### Texture System
-
-- Uses HTML5 Canvas for dynamic texture updates
-- UV coordinates are calculated from raycast intersections
-- Canvas is updated when stamps are placed, moved, or resized
-- Texture is applied to the tube mesh material
-
-## Development Notes
-
-### Key Technical Details
-
-- **Canvas-Based Textures**: The application uses a canvas-based texture system for stamp placement, allowing dynamic updates without recreating textures
-- **UV Coordinate Calculation**: UV coordinates are calculated from raycast intersections with the tube mesh
-- **Widget Colliders**: Widget colliders are larger than visual elements for easier interaction and better UX
-- **Camera Matrix Updates**: Camera matrix is updated before hit testing to ensure accurate raycasting after orbit controls
-- **Event Normalization**: Pointer events are normalized to work consistently across different input devices
-
-### Code Quality Standards
-
-- **No Defensive Programming**: Errors propagate to reveal real problems
-- **Component Simplicity**: Components are kept simple and focused, with logic extracted to hooks
-- **No Provisional Code**: Only fully functional features are implemented
+1. Pick an image in **Project Images**.
+2. Drag it onto the 3D arm model to place a stamp.
+3. Choose a projection type.
+4. Refine the placement using transform gizmos and/or brush-based lattice tools.
+5. Use undo/redo to explore and validate editing operations.
 
 ## Deployment
 
-See [docs/deploy.md](docs/deploy.md) for detailed deployment instructions to GitHub Pages.
+See `docs/deploy.md` for GitHub Pages deployment details.
 
 ## License
 
-Private project
+Private project.
 

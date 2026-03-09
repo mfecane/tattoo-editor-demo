@@ -1,0 +1,179 @@
+
+@import 'tailwindcss';
+@plugin "tailwindcss-animate";
+@config "../../tailwind.config.js";
+
+@theme inline {
+	/* Rounded corners */
+	--radius-xs: 1px;
+	--radius-sm: 2px;
+	--radius-md: 4px;
+	--radius-lg: 8px;
+	--radius-xl: 12px;
+	--radius-2xl: 16px;
+	--radius-3xl: 24px;
+
+	/* font wights (intentional scale) */
+	--font-weight-light: 200;
+	--font-weight-normal: 300;
+	--font-weight-medium: 400;
+	--font-weight-semibold: 500;
+	--font-weight-bold: 600;
+	--font-weight-extra-bold: 700;
+	--font-weight-black: 800;
+
+	/* Colors - Gray scale */
+	--color-gray-50: var(--gray-50);
+	--color-gray-100: var(--gray-100);
+	--color-gray-200: var(--gray-200);
+	--color-gray-300: var(--gray-300);
+	--color-gray-400: var(--gray-400);
+	--color-gray-500: var(--gray-500);
+	--color-gray-600: var(--gray-600);
+	--color-gray-700: var(--gray-700);
+	--color-gray-800: var(--gray-800);
+	--color-gray-900: var(--gray-900);
+	--color-gray-950: var(--gray-950);
+
+	/* Colors - Semantic */
+	--color-background: var(--background);
+	--color-surface: var(--surface);
+	--color-surface-foreground: var(--foreground);
+
+	--color-border: var(--border);
+
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+
+	--color-success: #10b981;
+	--color-warning: #f59e0b;
+	--color-danger: #ef4444;
+
+	/* Shadcn-style aliases */
+	--color-foreground: var(--foreground);
+	--color-foreground-hover: var(--foreground-hover);
+
+	--color-card: var(--surface);
+	--color-card-foreground: var(--surface-foreground);
+
+	--color-popover: var(--surface);
+	--color-popover-foreground: var(--foreground);
+	--color-popover-foreground-hover: var(--foreground-hover);
+
+	--color-destructive: var(--destructive);
+	--color-destructive-foreground: #ffffff; /* or var(--foreground) if you prefer */
+
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+
+	--color-chart-1: var(--chart-1);
+	--color-chart-2: var(--chart-2);
+	--color-chart-3: var(--chart-3);
+	--color-chart-4: var(--chart-4);
+	--color-chart-5: var(--chart-5);
+
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-ring: var(--sidebar-ring);
+
+	/* Font families */
+	--font-family-sans: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans,
+		Helvetica Neue, Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
+	--font-family-display: Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, Helvetica Neue, Arial;
+}
+
+/* Shadcn */
+:root {
+	--surface: #18181a;
+	--background: #232528;
+	--foreground: #cbccd0;
+	--foreground-hover: white;
+	--popover: #000000;
+	--popover-foreground: #ffffff;
+	--popover-foreground-hover: #ffffff;
+	--primary: #eaceac;
+	--primary-foreground: #000000;
+	--secondary: #14b8a6;
+	--secondary-foreground: #ffffff;
+	--muted: #6b7280;
+	--muted-foreground: #ffffff;
+	--accent: #eaceac;
+	--accent-foreground: #000000;
+	--destructive: #7c2f21;
+	--border: #1f2430;
+	--input: #1f2430;
+
+	/* Make focus ring actually visible */
+	--ring: #98816f;
+
+	--chart-1: oklch(0.488 0.243 264.376);
+	--chart-2: oklch(0.696 0.17 162.48);
+	--chart-3: oklch(0.769 0.188 70.08);
+	--chart-4: oklch(0.627 0.265 303.9);
+	--chart-5: oklch(0.645 0.246 16.439);
+
+	--sidebar: oklch(0.205 0 0);
+	--sidebar-foreground: oklch(0.985 0 0);
+	--sidebar-primary: oklch(0.488 0.243 264.376);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.269 0 0);
+	--sidebar-accent-foreground: oklch(0.985 0 0);
+	--sidebar-border: oklch(1 0 0 / 10%);
+	--sidebar-ring: oklch(0.556 0 0);
+
+	/* Gray scale - neutral grays */
+	--gray-50: #f9fafb;
+	--gray-100: #f3f4f6;
+	--gray-200: #e5e7eb;
+	--gray-300: #d1d5db;
+	--gray-400: #a1a6ae;
+	--gray-500: #75787f;
+	--gray-600: #5b5f65;
+	--gray-700: #46494f;
+	--gray-800: #31353a;
+	--gray-900: hsl(220, 5%, 12%);
+	--gray-950: #0e0f0f;
+
+	color-scheme: dark;
+}
+
+/* Global styles for Next.js app router */
+html,
+body,
+#__next {
+	height: 100%;
+}
+
+html,
+body {
+	background-color: var(--background);
+}
+
+body {
+	margin: 0;
+	font-family: var(--font-family-sans);
+	color: var(--foreground);
+}
+
+* {
+	box-sizing: border-box;
+}
+
+#root {
+	width: 100%;
+	height: 100%;
+}

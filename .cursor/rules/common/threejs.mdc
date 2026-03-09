@@ -1,0 +1,19 @@
+---
+alwaysApply: true
+---
+
+# 🎨 Three.js Rules (MDC)
+
+## Imports
+
+-   ✅ **REQUIRED**: Always import individual items from three.js (named imports only, no default/namespace imports)
+-   Example: `import { Scene, PerspectiveCamera, WebGLRenderer } from 'three'`
+
+## Object Naming
+
+-   ✅ **REQUIRED**: Always set `object.name` on all Object3D objects (Scene, Mesh, Group, Camera, etc.) immediately upon creation
+-   ❌ **NO** objects in the scene without a `name` property set
+-   Examples: `scene.name = 'MainScene'`, `mesh.name = 'TattooMesh'`, `camera.name = 'MainCamera'`
+
+@_.tsx
+@_.ts

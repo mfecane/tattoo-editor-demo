@@ -1,32 +1,7 @@
-import { useState } from 'react'
-import ThreeScene from '@/components/ThreeScene'
-import GuiPanel from '@/components/GuiPanel'
-import { BrushOverlay } from '@/components/BrushOverlay'
-import { useEditorStore } from '@/store/editorStore'
+import { Editor } from './editor/components/Editor'
 
 function App() {
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const store = useEditorStore()
-  const isImageReady = store.isImageReady
-  const stampInfo = store.stampInfo
-  const isStampPlaced = stampInfo !== null
-
-  return (
-    <div className="App flex h-screen w-screen overflow-hidden" style={{ minWidth: 0, minHeight: 0 }}>
-      <GuiPanel
-        onImageSelect={setImageUrl}
-        isImageActive={isImageReady}
-        isStampPlaced={isStampPlaced}
-      />
-      <div className="flex-1 h-full relative" style={{ minWidth: 0, minHeight: 0 }}>
-        <ThreeScene
-          imageUrl={imageUrl}
-        />
-        <BrushOverlay />
-      </div>
-    </div>
-  )
+	return <Editor projectId="default-project" />
 }
 
 export default App
-

@@ -1,0 +1,82 @@
+---
+alwaysApply: true
+---
+
+# 🚫 Code Quality Rules (MDC)
+
+## No Defensive Programming
+
+-   ❌ **NO** fallbacks, silent catches, or defensive wrappers
+-   ❌ **NO** `try/catch` that swallow errors or return defaults
+-   ❌ **NO** vague guards like `if (!x) return null` unless null is expected
+-   ❌ **NO** `?.` or `||` used defensively to avoid errors
+-   ✅ **REQUIRED**: Let errors propagate; throw explicitly and early
+-   ✅ **REQUIRED**: Use `try/catch` only to add context, then re-throw
+-   ✅ **REQUIRED**: Fail fast and visibly — errors reveal problems
+
+## No Provisional Code
+
+-   ❌ **NO** placeholders, TODOs, or incomplete functionality
+-   ❌ **NO** hooks/components "for later use"
+-   ❌ **NO** commented code with future notes
+-   ✅ **REQUIRED**: Only implement fully functional features
+-   ✅ **REQUIRED**: Remove existing provisional code
+
+## 🧹 MANDATORY Cleanup & Dead Code Removal
+
+-   ✅ **CRITICAL**: After every change, scan entire file for dead code and remove immediately
+-   ✅ **CRITICAL**: Remove unused imports, variables, functions, types, components, parameters, props, state variables, hooks, effects
+-   ✅ **CRITICAL**: If you undo part of a change, scan for orphaned code from original change
+-   ✅ **CRITICAL**: Before finishing any task, verify no dead code remains in modified files
+-   ❌ **FORBIDDEN**: Partial cleanup — if you change something, clean up ALL related dead code
+-   ✅ **EXCEPTION**: Code that will be used later with 99% certainty can be kept, but MUST have mandatory comment: `// KEEP: <reason why this will definitely be used>`
+-   **Dead Code Types to Remove (MANDATORY):**
+    -   ❌ **Methods/functions that are never called** — search codebase with grep/codebase_search, if zero results (except definition), DELETE IT
+    -   ❌ **Whole modules/files that are never used** — search for imports, if zero imports found, DELETE THE ENTIRE FILE
+    -   ❌ **State variables that are never referenced** — check if useState/useStore values are read anywhere, if not, remove them
+    -   ❌ **Exported functions/components that are never imported** — search for imports, if none exist, remove export AND entire file if it only exports unused code
+    -   ❌ **Event handlers, derived state, unused types/interfaces** — if not used, remove them
+-   **Cleanup Checklist** (apply after EVERY change):
+    1. Remove unused imports, variables, constants, types, props, parameters, hooks, effects
+    2. **MANDATORY: Search codebase for each method/function name — if never called, DELETE IT**
+    3. **MANDATORY: Search for imports of each modified file — if never imported, DELETE THE ENTIRE FILE**
+    4. **MANDATORY: Search for and remove all state variables that are never referenced**
+    5. Verify file compiles without errors and no linter warnings
+    6. **Use grep/codebase_search to verify EVERY function/method/file is actually used before keeping it**
+-   **When refactoring or undoing changes:**
+    -   Read entire file before and after changes, identify ALL code that became unused
+    -   If you replace a function, remove the old one completely
+    -   If you change an approach, remove ALL code from the old approach
+    -   **MANDATORY: Before keeping any function/method/file/state, search codebase — if never used, DELETE IT**
+
+## Architecture Sanity
+
+-   Verify design decisions against industry standards
+-   Flag deviations from proven patterns without justification
+-   Question unnecessarily complex or inconsistent approaches
+-   Suggest conventional solutions when flagging issues
+
+## Bug Fixing Approach
+
+-   ❌ **NO** applying fixes if you are not sure about the cause of the problem
+-   ❌ **NO** rushing to implement the first solution that comes to mind
+-   ❌ **NO** making changes without understanding the root cause
+-   ✅ **REQUIRED**: Only proceed if 100% certain about the cause of the bug
+-   ✅ **REQUIRED**: If unsure, ask the user to help understand the problem better
+-   ✅ **REQUIRED**: Gather information, investigate thoroughly, and verify assumptions before fixing
+
+## Review Comments
+
+-   ✅ **REQUIRED**: Add review comments in a standardized, grep-friendly format for code that needs manual verification
+-   ✅ **REQUIRED**: Use `// REVIEW:` prefix followed by a brief description when:
+    -   Implementation correctness is uncertain (not 100% confident)
+    -   Manual testing is required to verify behavior
+    -   Edge cases or error scenarios need validation
+    -   Performance implications need measurement
+    -   Integration points need verification
+-   ✅ **REQUIRED**: Format: `// REVIEW: <brief description of what needs review/testing>`
+-   ✅ **REQUIRED**: Examples:
+    -   `// REVIEW: Verify error handling when API returns unexpected response format`
+    -   `// REVIEW: Manual testing required for concurrent user scenarios`
+    -   `// REVIEW: Performance impact of this query needs measurement with production data`
+-   ✅ **REQUIRED**: Search for review comments using: `grep -r "REVIEW:"` or `grep -r "// REVIEW:"`

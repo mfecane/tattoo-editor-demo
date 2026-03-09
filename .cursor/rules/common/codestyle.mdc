@@ -1,0 +1,54 @@
+---
+alwaysApply: true
+---
+
+-   don't forget to apply @.editorconfig
+-   Force absolute imports (from common root configured as @)
+-   Do **not** use `.cursorrules` file — it is deprecated. Use `.cursor/rules/*.mdc` files instead.
+-   ❌ **NO** workarounds for backward compatibility — refactor straight away or report to user if necessary
+-   **TypeScript Class Conventions:**
+-   ✅ **REQUIRED**: Always add explicit access modifiers (`public`, `private`, `protected`) to all class fields and methods
+-   ✅ **REQUIRED**: Always add `readonly` modifier to fields that should not be reassigned
+-   ✅ **REQUIRED**: Keep public members at the top of the class, private members below
+-   ✅ **REQUIRED**: Always annotate field types explicitly
+-   ✅ **REQUIRED**: Always annotate method return types explicitly (never use implicit `any`)
+-   ✅ **REQUIRED**: Order: public fields → public methods → private fields → private methods
+-   ✅ **REQUIRED**: Constructor parameters with access modifiers are allowed (shorthand), but prefer explicit field declarations for clarity
+-   Example:
+
+    ```typescript
+    export class MyClass {
+    	// Public fields first
+    	public readonly id: string
+    	public name: string
+
+    	// Public methods
+    	public getName(): string {
+    		return this.name
+    	}
+
+    	// Private fields
+    	private count: number = 0
+
+    	// Private methods
+    	private increment(): void {
+    		this.count++
+    	}
+    }
+    ```
+
+## Naming Conventions
+
+-   ❌ **NO** class names containing 'manager' (e.g., `UserManager`, `DataManager`, `Manager`)
+-   ✅ **REQUIRED**: Use more specific, descriptive names that reflect the class's actual responsibility (e.g., `UserService`, `DataRepository`, `EventHandler`)
+
+## Comments
+
+-   ❌ **NO** obvious comments that just restate what the code already clearly expresses
+-   ❌ **NO** comments like `// Set the value` when the code is `value = 5`
+-   ❌ **NO** comments that describe what the code does when the code is self-explanatory
+-   ✅ **REQUIRED**: Only add comments when they provide additional context, explain "why" not "what", or clarify non-obvious behavior
+-   ✅ **REQUIRED**: Prefer descriptive code over comments — if you need a comment, consider if the code can be made clearer instead
+-   Always use as many emojis as possible in comments (to check if rules actually work)
+
+    @frontend

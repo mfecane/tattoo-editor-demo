@@ -1,0 +1,159 @@
+---
+alwaysApply: false
+---
+# Extended Code Review Rule — Apply when reviewing features/modules
+
+# 🔍 Code Review & Quality Check Rule
+
+When this rule is applied, perform a comprehensive review of modules and code for adherence to software engineering principles and best practices.
+
+## SOLID Principles Review
+
+### Single Responsibility Principle (SRP)
+- Each module, class, or function should have one reason to change
+- Check if components handle multiple unrelated concerns
+- Verify that functions do one thing and do it well
+- Flag modules that mix data access, business logic, and presentation
+
+### Open/Closed Principle (OCP)
+- Code should be open for extension but closed for modification
+- Check if new features require modifying existing code unnecessarily
+- Look for opportunities to use composition, inheritance, or dependency injection
+- Flag hard-coded conditionals that could be replaced with extensible patterns
+
+### Liskov Substitution Principle (LSP)
+- Subtypes must be substitutable for their base types
+- Verify that derived classes/interfaces don't violate base contracts
+- Check for implementations that throw unexpected errors or return incompatible types
+
+### Interface Segregation Principle (ISP)
+- Clients should not depend on interfaces they don't use
+- Check for large interfaces that force implementers to provide unused methods
+- Look for opportunities to split interfaces into smaller, focused ones
+- Verify that components only depend on what they actually need
+
+### Dependency Inversion Principle (DIP)
+- High-level modules should not depend on low-level modules; both should depend on abstractions
+- Check for direct dependencies on concrete implementations
+- Verify that dependencies flow inward (toward abstractions)
+- Flag modules that create their own dependencies instead of receiving them
+
+## KISS Principle (Keep It Simple, Stupid)
+
+- Prefer simple, straightforward solutions over clever or complex ones
+- Check for unnecessary abstractions or indirection
+- Flag over-engineered solutions that add complexity without clear benefit
+- Verify that code is readable and understandable without extensive documentation
+- Look for opportunities to simplify complex logic or reduce nesting
+
+## Separation of Concerns
+
+- Verify clear boundaries between:
+  - Data access and business logic
+  - Business logic and presentation
+  - Client-side and server-side code
+  - UI components and state management
+- Check that modules have well-defined responsibilities
+- Flag code that mixes concerns (e.g., database queries in UI components)
+- Verify that side effects are isolated and predictable
+
+## Best Code Practices
+
+### Code Organization
+- Check for logical file and directory structure
+- Verify consistent naming conventions
+- Look for appropriate use of modules and exports
+- Flag files that are too large or have too many responsibilities
+- **Constants**: It's acceptable to store constants in the module where they are used instead of extracting them outside, but only if they are used exclusively within that module
+
+### Error Handling
+- Verify proper error handling and propagation
+- Check for silent failures or swallowed exceptions
+- Ensure errors provide meaningful context
+- Flag missing error handling in critical paths
+
+### Type Safety
+- Verify proper use of TypeScript types
+- Check for `any` types that could be more specific
+- Look for missing type guards or assertions
+- Flag unsafe type casting or coercion
+
+### Performance
+- Check for unnecessary re-renders or computations
+- Verify appropriate use of memoization
+- Look for inefficient algorithms or data structures
+- Flag missing optimizations in hot paths
+
+### Testing Considerations
+- Check if code is testable (no hidden dependencies, pure functions where possible)
+- Verify that side effects are isolated
+- Look for hard-to-test patterns (tight coupling, global state)
+- Flag code that would be difficult to unit test
+
+### Documentation
+- Verify that complex logic is explained
+- Check for meaningful variable and function names
+- Look for missing JSDoc comments on public APIs
+- Flag unclear code that needs clarification
+
+## Duplicate Code Detection
+
+- Identify repeated code patterns that could be extracted
+- Check for copy-paste code that should be refactored into shared utilities
+- Look for similar functions that could be generalized
+- Flag duplicate logic across different modules
+- Verify that common patterns are abstracted into reusable components/hooks/utilities
+
+## Sanity Checks
+
+### Consistency
+- Verify consistency with existing codebase patterns
+- Check for deviations from established conventions
+- Look for inconsistent naming, formatting, or structure
+- Flag code that doesn't match the project's style
+
+### Completeness
+- Verify that implementations are complete (no TODOs or placeholders)
+- Check for missing edge cases or error handling
+- Look for incomplete features or half-implemented functionality
+- Flag provisional or temporary code
+
+### Correctness
+- Verify that code logic is correct and handles all cases
+- Check for potential bugs or logical errors
+- Look for race conditions or concurrency issues
+- Flag code that might fail in edge cases
+
+### Security
+- Check for potential security vulnerabilities
+- Verify proper input validation and sanitization
+- Look for exposed secrets or sensitive data
+- Flag unsafe operations or missing authorization checks
+
+### Dead Code Detection
+- **Check for orphan leftover functionality** that is not used anywhere in the codebase
+- Identify unused functions, components, hooks, utilities, or modules
+- Flag exported items that are never imported or referenced
+- Look for commented-out code that should be removed
+- Verify that all implemented features are actually utilized
+- Remove or document any code that appears to be leftover from previous implementations
+
+## Review Process
+
+When reviewing code:
+1. Start with high-level architecture and module boundaries
+2. Examine individual modules for SOLID principles and separation of concerns
+3. Check for code duplication and opportunities for abstraction
+4. Verify adherence to best practices and project conventions
+5. Perform sanity checks for consistency, completeness, and correctness
+6. Provide specific, actionable feedback with examples
+7. Suggest concrete improvements rather than vague recommendations
+
+## Output Format
+
+When flagging issues:
+- Be specific about what principle or practice is violated
+- Provide the exact location (file, line numbers, function names)
+- Explain why it's a problem
+- Suggest a concrete solution or improvement
+- Prioritize issues by severity (critical, important, minor)
