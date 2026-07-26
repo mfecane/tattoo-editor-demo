@@ -1,15 +1,6 @@
-import { DesignImageProps } from '@/editor/components/DesignImagesPanel'
 import { Editor } from '@/editor/main/Editor'
 import { DesignImageItemWithUrl } from '@/editor/types/projectTypes'
-import { Intersection } from 'three'
 import { create } from 'zustand'
-
-export interface PendingPlacement {
-	image: DesignImageProps
-	clientX: number
-	clientY: number
-	intersection: Intersection
-}
 
 export interface EditorState {
 	loading: boolean
@@ -29,9 +20,6 @@ export interface EditorState {
 
 	designImages: DesignImageItemWithUrl[] | null
 	setDesignImages: (designImages: DesignImageItemWithUrl[] | null) => void
-
-	pendingPlacement: PendingPlacement | null
-	setPendingPlacement: (pendingPlacement: PendingPlacement | null) => void
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -52,7 +40,4 @@ export const useEditorStore = create<EditorState>((set) => ({
 
 	designImages: null,
 	setDesignImages: (designImages) => set({ designImages }),
-
-	pendingPlacement: null,
-	setPendingPlacement: (pendingPlacement) => set({ pendingPlacement }),
 }))

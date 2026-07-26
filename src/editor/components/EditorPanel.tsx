@@ -1,7 +1,8 @@
 'use client'
 import ConfirmModal from '@/components/modals/ConfirmModal'
-import { BASE_URL } from '@/editor/lib/constants'
-import { ProjectImagesPanel } from '@/editor/components/ProjectImagesPanel'
+import { BASE_URL } from '@/editor/constants'
+import { ProjectSketchesPanel } from '@/editor/components/ProjectSketchesPanel'
+import { useReactBridgeContext } from '@/editor/hooks/useReactBridge'
 import { useEffect, useRef, useState } from 'react'
 
 interface RuntimeProjectImage {
@@ -29,6 +30,7 @@ const DEFAULT_PROJECT_IMAGES: RuntimeProjectImage[] = [
 ]
 
 export function EditorPanel() {
+	const reactBridge = useReactBridgeContext()
 	const [projectImages, setProjectImages] = useState<RuntimeProjectImage[]>(DEFAULT_PROJECT_IMAGES)
 	const [isDragging, setIsDragging] = useState(false)
 	const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -80,6 +82,9 @@ export function EditorPanel() {
 	}
 
 	const onProjectImageDelete = handleDeleteClick
+	const onProjectImageClick = (image: Pick<RuntimeProjectImage, 'id' | 'imageUrl'>) =>
+		reactBridge?.openRegionEditor(image.id, image.imageUrl)
+
 	const onFilesSelected = async (files: FileList | null) => {
 		if (!files || files.length === 0) {
 			return
@@ -116,11 +121,12 @@ export function EditorPanel() {
 	}
 
 	return (
-		<section className="w-80 flex-shrink-0 overflow-y-auto border-l border-gray-800 bg-gray-900 p-4">
+		<section className="w-80 flex-shrink-0 overflow-y-auto border-l border-neutral-800 bg-neutral-900 p-4">
 			<div className="space-y-6">
-				<ProjectImagesPanel
+				<ProjectSketchesPanel
 					projectImages={projectImages}
 					onImageDelete={onProjectImageDelete}
+					onImageClick={onProjectImageClick}
 					onFilesSelected={(files) => {
 						onFilesSelected(files).catch((error: unknown) => {
 							const message = error instanceof Error ? error.message : String(error)

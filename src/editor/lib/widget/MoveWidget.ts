@@ -1,4 +1,5 @@
-import { UpdateLatticeStrategy } from '@/editor/lib/lattice/UpdateLatticeStrategy'
+import { WidgetStrategy } from '@/editor/lib/widget/WidgetStrategy'
+import type { Editor } from '@/editor/main/Editor'
 import { HitResult, HitResultType } from '@/editor/main/HitTester'
 import { WidgetTransformService } from '@/editor/services/WidgetTransformService'
 import { container } from '@/lib/di/container'
@@ -9,7 +10,6 @@ import {
 	Mesh,
 	MeshBasicMaterial,
 	Object3D,
-	Scene,
 	SphereGeometry,
 	Vector3,
 } from 'three'
@@ -30,7 +30,7 @@ export class MoveWidget extends BaseWidget {
 		normal: Vector3,
 		uAxis: Vector3,
 		vAxis: Vector3,
-		scene: Scene,
+		editor: Editor,
 		rotation: number = 0
 	) {
 		super()
@@ -40,7 +40,6 @@ export class MoveWidget extends BaseWidget {
 
 		const quaternion = this.widgetTransformService.calculateWidgetOrientation(normal, uAxis, vAxis, rotation)
 		this.group.quaternion.copy(quaternion)
-		this.group.scale.set(1, 1, 1)
 
 		this.group.visible = true
 		this.group.userData.isMoveWidget = true
@@ -61,7 +60,8 @@ export class MoveWidget extends BaseWidget {
 
 		this.setTemporaryVisibility(true)
 
-		scene.add(this.group)
+		editor.overlayScene.add(this.group)
+		this.enableScreenSpaceScale(editor)
 	}
 
 	private createAxisHandle(
@@ -141,7 +141,7 @@ export class MoveWidget extends BaseWidget {
 		return this.handles.map((h) => h.getCollider())
 	}
 
-	setEnabledHandles(strategy: UpdateLatticeStrategy): void {
+	setEnabledHandles(strategy: WidgetStrategy): void {
 		const canMoveX = strategy.canMoveX()
 		const canMoveY = strategy.canMoveY()
 		const canMoveCenter = strategy.canMoveCenter()
@@ -201,6 +201,7 @@ export class MoveWidget extends BaseWidget {
 	}
 
 	public destroy(): void {
+		this.disposeScreenSpaceScale()
 		this.group.traverse((child) => {
 			const obj = child as Object3D & {
 				geometry?: { dispose: () => void }

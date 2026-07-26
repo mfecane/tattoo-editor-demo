@@ -1,5 +1,6 @@
-import type { UpdateLatticeStrategy } from '@/editor/lib/lattice/UpdateLatticeStrategy'
+import type { WidgetStrategy } from '@/editor/lib/widget/WidgetStrategy'
 import type { IHandle } from '@/editor/lib/widget/IWidget'
+import type { Editor } from '@/editor/main/Editor'
 import { HitResultType, type HitResult } from '@/editor/main/HitTester'
 import { WidgetTransformService } from '@/editor/services/WidgetTransformService'
 import { container } from '@/lib/di/container'
@@ -9,7 +10,6 @@ import {
 	LineBasicMaterial,
 	Mesh,
 	MeshBasicMaterial,
-	Scene,
 	SphereGeometry,
 	Vector3,
 	type Intersection,
@@ -62,7 +62,7 @@ export class ScalingWidget extends BaseWidget {
 		normal: Vector3,
 		uAxis: Vector3,
 		vAxis: Vector3,
-		scene: Scene,
+		editor: Editor,
 		rotation: number = 0
 	) {
 		super()
@@ -72,7 +72,6 @@ export class ScalingWidget extends BaseWidget {
 
 		const quaternion = this.widgetTransformService.calculateWidgetOrientation(normal, uAxis, vAxis, rotation)
 		this.group.quaternion.copy(quaternion)
-		this.group.scale.set(1, 1, 1)
 
 		this.group.visible = true
 
@@ -232,10 +231,11 @@ export class ScalingWidget extends BaseWidget {
 		this.centerHandle = centerHandle
 		this.centerHitTest = centerHitTest
 
-		scene.add(this.group)
+		editor.overlayScene.add(this.group)
+		this.enableScreenSpaceScale(editor)
 	}
 
-	setEnabledHandles(strategy: UpdateLatticeStrategy): void {
+	setEnabledHandles(strategy: WidgetStrategy): void {
 		const canResizeX = strategy.canResizeX()
 		const canResizeY = strategy.canResizeY()
 		const canResizeCenter = strategy.canResizeCenter()
@@ -300,6 +300,7 @@ export class ScalingWidget extends BaseWidget {
 	}
 
 	destroy(): void {
+		this.disposeScreenSpaceScale()
 		this.group.traverse((child) => {
 			const obj = child as Object3D & {
 				geometry?: { dispose: () => void }

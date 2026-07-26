@@ -1,9 +1,10 @@
-import type { UpdateLatticeStrategy } from '@/editor/lib/lattice/UpdateLatticeStrategy'
 import type { IWidget } from '@/editor/lib/widget/IWidget'
 import { MoveWidget } from '@/editor/lib/widget/MoveWidget'
 import { RotateWidget } from '@/editor/lib/widget/RotateWidget'
 import { ScalingWidget } from '@/editor/lib/widget/ScalingWidget'
-import type { Scene, Vector3 } from 'three'
+import type { WidgetStrategy } from '@/editor/lib/widget/WidgetStrategy'
+import type { Editor } from '@/editor/main/Editor'
+import type { Vector3 } from 'three'
 
 /**
  * Factory for creating widget instances.
@@ -18,7 +19,7 @@ export class WidgetFactory {
 	 * @param normal - The surface normal vector
 	 * @param uAxis - The U axis vector (tangent direction)
 	 * @param vAxis - The V axis vector (bitangent direction)
-	 * @param scene - The Three.js scene to add the widget to
+	 * @param editor - The active Editor (its overlayScene, camera, and cameraUpdateController)
 	 * @param strategy - The strategy to determine which handles should be enabled
 	 * @param rotation - Optional rotation angle in radians (default: 0)
 	 * @returns The created widget instance
@@ -29,26 +30,26 @@ export class WidgetFactory {
 		normal: Vector3,
 		uAxis: Vector3,
 		vAxis: Vector3,
-		scene: Scene,
-		strategy: UpdateLatticeStrategy,
+		editor: Editor,
+		strategy: WidgetStrategy,
 		rotation: number = 0
 	): IWidget {
 		let widget: IWidget
 		switch (type) {
 			case 'scaling':
-				widget = new ScalingWidget(position, normal, uAxis, vAxis, scene, rotation)
+				widget = new ScalingWidget(position, normal, uAxis, vAxis, editor, rotation)
 				if (widget instanceof ScalingWidget) {
 					widget.setEnabledHandles(strategy)
 				}
 				return widget
 			case 'rotate':
-				widget = new RotateWidget(position, normal, uAxis, vAxis, scene, rotation)
+				widget = new RotateWidget(position, normal, uAxis, vAxis, editor, rotation)
 				if (widget instanceof RotateWidget) {
 					widget.setEnabled(strategy)
 				}
 				return widget
 			case 'move':
-				widget = new MoveWidget(position, normal, uAxis, vAxis, scene, rotation)
+				widget = new MoveWidget(position, normal, uAxis, vAxis, editor, rotation)
 				if (widget instanceof MoveWidget) {
 					widget.setEnabledHandles(strategy)
 				}

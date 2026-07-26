@@ -5,13 +5,18 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: process.env.GITHUB_REPOSITORY
-    ? `/${process.env.GITHUB_REPOSITORY.split('/')[1]}/`
-    : '/editor/', // Replace 'editor' with your actual repository name for local development
+  server: {
+    port: 5174,
+  },
+  base: '/tattoo-editor-demo/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  // poly2tri's UMD wrapper checks for a Node-style `global` - doesn't exist in the browser.
+  define: {
+    global: 'globalThis',
   },
 })
 

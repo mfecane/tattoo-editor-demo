@@ -1,12 +1,14 @@
 # GitHub Pages Deployment Guide
 
+> **Note:** This guide is generic for GitHub Pages deployment. Update repository-specific values (URL, base path, branch names) to match your actual setup.
+
 This guide explains how to deploy this application to GitHub Pages using GitHub Actions.
 
 ## Live Site
 
-The application is deployed and available at:
+The application is deployed to GitHub Pages. Check `package.json` `homepage` field for the current live deployment URL.
 
-**https://mfecane.github.io/stamp-demo/**
+Current repository: https://github.com/mfecane/tattoo-editor-demo/
 
 ## Prerequisites
 
@@ -21,7 +23,7 @@ The `vite.config.ts` file includes a base path configuration for GitHub Pages. Y
 
 1. Open `vite.config.ts`
 2. Find the `base` property in the `defineConfig` object
-3. Replace `'editor'` with your actual GitHub repository name
+3. Update it to match your deployment URL
 
 For example, if your repository is `https://github.com/username/my-project`, update the base to:
 
@@ -35,7 +37,7 @@ If you're deploying to a custom domain or the repository root, use:
 base: '/',
 ```
 
-**Note:** The workflow automatically sets the base path using the `GITHUB_REPOSITORY` environment variable during the build, so you may not need to manually update it. However, for local development, you should ensure the base path matches your repository name.
+**Note:** The workflow automatically sets the base path using the `GITHUB_REPOSITORY` environment variable during the build, so you may not need to manually update it. However, for local development, ensure the base path matches your repository name.
 
 ### 2. Enable GitHub Pages
 
@@ -71,8 +73,6 @@ After the first successful deployment, your site will be available at:
 ```
 https://[username].github.io/[repository-name]/
 ```
-
-**Live deployment:** https://mfecane.github.io/stamp-demo/
 
 For example, if your username is `johndoe` and repository is `editor`:
 ```
@@ -130,4 +130,3 @@ This will build the application and serve it locally, allowing you to verify tha
 ## Continuous Deployment
 
 The workflow is configured to automatically deploy on every push to the `master` branch. If you want to deploy only on specific branches or tags, modify the `on.push.branches` section in `.github/workflows/deploy.yml`.
-

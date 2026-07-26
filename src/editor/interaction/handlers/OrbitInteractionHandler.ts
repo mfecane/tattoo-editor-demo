@@ -32,7 +32,7 @@ export class OrbitInteractionHandler implements InteractionHandler {
 			return new InteractionHandlerResult().setPass()
 		}
 
-		this.editor.reactBridge.refreshStampContextMenuPosition()
+		this.editor.reactBridge.refreshSelectionContextMenuPosition()
 
 		this.editor.controls.enabled = true
 		return new InteractionHandlerResult().setPass()

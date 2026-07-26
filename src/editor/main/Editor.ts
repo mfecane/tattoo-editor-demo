@@ -1,14 +1,17 @@
-import { EDITOR_CONSTANTS } from '@/editor/lib/constants'
+import { EDITOR_CONSTANTS } from '@/editor/constants'
+import { CanvasEventHandler } from '@/editor/interaction/CanvasEventHandler'
 import { Visual3dDebugger } from '@/editor/lib/utils/Visual3dDebugger'
+import { CameraUpdateController } from '@/editor/main/CameraUpdateController'
 import { CommandFactory } from '@/editor/main/commands/CommandFactory'
 import { EditorController } from '@/editor/main/EditorController'
+import { EditorKeyboardHandler } from '@/editor/main/EditorKeyboardHandler'
 import { ILightingSetup } from '@/editor/main/environment/ILightingSetup'
 import { HitTester } from '@/editor/main/HitTester'
 import { PreviewMesh } from '@/editor/main/PreviewMesh'
 import { ReactBridge } from '@/editor/main/ReactBridge'
-import { StampImageStorage } from '@/editor/services/StampImageStorage'
+import { BodyTextureComposer } from '@/editor/services/BodyTextureComposer'
+import { PatchBaker } from '@/editor/services/PatchBaker'
 import { ProjectRecord } from '@/editor/types/projectTypes'
-import { container } from '@/lib/di/container'
 import { Euler, Group, Mesh, PerspectiveCamera, Scene, Texture, WebGLRenderer } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
@@ -16,7 +19,6 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader.js'
 import { VignetteShader } from 'three/examples/jsm/shaders/VignetteShader.js'
-import { Optional } from 'typescript-optional'
 
 export class Editor {
 	public previewScene: Scene
@@ -36,15 +38,23 @@ export class Editor {
 
 	public readonly hitTester: HitTester
 
+	public readonly canvasEventHandler: CanvasEventHandler
+
+	public readonly patchBaker: PatchBaker = new PatchBaker(this)
+
+	public readonly bodyTextureComposer: BodyTextureComposer = new BodyTextureComposer(this)
+
 	public readonly reactBridge: ReactBridge = new ReactBridge(this)
 
-	private stampImageStorage: StampImageStorage | null = null
+	public readonly keyboardHandler: EditorKeyboardHandler = new EditorKeyboardHandler(this.controller)
+
+	public readonly cameraUpdateController: CameraUpdateController = new CameraUpdateController()
 
 	public projectId: string | null = null
 
 	private animateId: number | null = null
 
-	private readonly visual3dDebugger: Visual3dDebugger = container.resolve<Visual3dDebugger>('Visual3dDebugger')
+	public readonly visual3dDebugger: Visual3dDebugger
 
 	public constructor(
 		public readonly previewMesh: PreviewMesh,
@@ -59,11 +69,11 @@ export class Editor {
 
 		this.overlayScene = new Scene()
 
-		// dumb hack
-		this.visual3dDebugger.setScene(this.overlayScene)
+		this.visual3dDebugger = new Visual3dDebugger()
 
-		//@ts-expect-error fuck off typescript
-		window.OVERLAY_SCENE = this.overlayScene
+		// Wired to RaycastUVSearch (see PatchBaker.scheduleBake) to visualize the expanded patch
+		// geometry and hit rays during UV search - also available for ad-hoc debug use elsewhere.
+		this.visual3dDebugger.setScene(this.overlayScene)
 
 		this.camera = new PerspectiveCamera(
 			EDITOR_CONSTANTS.CAMERA_FOV,
@@ -124,18 +134,19 @@ export class Editor {
 		window.addEventListener('resize', this.handleResize)
 
 		this.hitTester = new HitTester(this)
+		this.canvasEventHandler = new CanvasEventHandler(this)
 		this.controller.setActiveTool(this.controller.getSelectTool())
-
-		this.controller.animate()
 	}
 
 	public async setProjectData(projectData: ProjectRecord): Promise<void> {
 		this.projectId = projectData.id
-		this.stampImageStorage = new StampImageStorage(projectData.id, projectData.designId)
-		this.controller.project.setProjectData(projectData)
 	}
 
 	public destroy(): void {
+		this.keyboardHandler.destroy()
+		this.patchBaker.destroy()
+		this.bodyTextureComposer.destroy()
+
 		if (this.animateId) {
 			cancelAnimationFrame(this.animateId)
 		}
@@ -178,6 +189,7 @@ export class Editor {
 
 	public update() {
 		this.controls.update()
+		this.cameraUpdateController.notify()
 	}
 
 	public render(): void {
@@ -213,12 +225,6 @@ export class Editor {
 
 	public setBackgroundRotation(angle: number): void {
 		this.previewScene.backgroundRotation.z = angle
-	}
-
-	public getStampImageStorage(): StampImageStorage {
-		return Optional.ofNullable(this.stampImageStorage).orElseThrow(
-			() => new Error('[EditorController] Stamp image storage not initialized')
-		)
 	}
 
 	public getOverlayScene(): Scene {

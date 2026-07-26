@@ -1,6 +1,5 @@
 import { Editor } from '@/editor/main/Editor'
 import type { ILightingSetup } from '@/editor/main/environment/ILightingSetup'
-import { LightingSetup1 } from '@/editor/main/environment/LightingSetup1'
 import { LightingSetup2 } from '@/editor/main/environment/LightingSetup2'
 import { PreviewMeshFactory } from '@/editor/main/PreviewMeshFactory'
 import { PCFSoftShadowMap, PMREMGenerator, ReinhardToneMapping, SRGBColorSpace, Texture, WebGLRenderer } from 'three'
@@ -11,7 +10,6 @@ export class EditorFactory {
 	private static readonly ENVIRONMENT_MAP_URL = 'assets/environment/blocky_photo_studio_512.ktx2'
 
 	private readonly previewMeshFactory: PreviewMeshFactory = new PreviewMeshFactory()
-	private readonly lightingSetup1: ILightingSetup = new LightingSetup1()
 	private readonly lightingSetup2: ILightingSetup = new LightingSetup2()
 
 	public async createEditor(container: HTMLElement): Promise<Editor> {

@@ -15,7 +15,7 @@
  * @param size - 'original' or 'small' (default: 'small' for previews, 'original' for modals)
  * @returns Public URL
  */
-export function resolveImageUrl(hash: string, basePath: string, size: 'original' | 'small' = 'small'): string {
+export function resolveImageUrl(_hash: string, _basePath: string, _size: 'original' | 'small' = 'small'): string {
 	// const path = resolveImagePath(hash, basePath, size)
 	// return buildPublicImageUrl(path)
 	throw new Error('Not implemented')
@@ -27,7 +27,7 @@ export function resolveImageUrl(hash: string, basePath: string, size: 'original'
  * @param basePath - Base path
  * @returns Object with original and small URLs
  */
-export function getImageUrls(hash: string, basePath: string): { original: string; small: string } {
+export function getImageUrls(_hash: string, _basePath: string): { original: string; small: string } {
 	// const paths = getImagePaths(hash, basePath)
 	// return {
 	// 	original: buildPublicImageUrl(paths.original),
@@ -42,9 +42,9 @@ export function getImageUrls(hash: string, basePath: string): { original: string
  * If path is a hash, resolve it
  */
 export function resolveLegacyImageUrl(
-	pathOrHash: string,
-	basePath: string,
-	size: 'original' | 'small' = 'small'
+	_pathOrHash: string,
+	_basePath: string,
+	_size: 'original' | 'small' = 'small'
 ): string {
 	// // Check if it's already a full path (contains /original/ or /small/)
 	// if (pathOrHash.includes('/original/') || pathOrHash.includes('/small/')) {

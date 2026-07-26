@@ -21,6 +21,11 @@ export class HistoryController {
 		if (command.isUndoable?.()) {
 			this.push(command)
 		}
+		// Every domain mutation flows through here (undoable or not) - the one place
+		// to re-check whether the active tool's widget still targets something valid,
+		// and to re-derive which placed mesh is baked vs. live.
+		this.controller.syncActiveToolToTarget()
+		this.controller.refreshBakeAndVisibility()
 	}
 
 	public push(command: EditorCommand): void {
@@ -40,6 +45,8 @@ export class HistoryController {
 		command.undo()
 		this.redoStack.push(command)
 		this.recomputeStateAndNotify()
+		this.controller.syncActiveToolToTarget()
+		this.controller.refreshBakeAndVisibility()
 		return true
 	}
 
@@ -55,6 +62,8 @@ export class HistoryController {
 		}
 		this.undoStack.push(command)
 		this.recomputeStateAndNotify()
+		this.controller.syncActiveToolToTarget()
+		this.controller.refreshBakeAndVisibility()
 		return true
 	}
 

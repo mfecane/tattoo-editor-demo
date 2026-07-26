@@ -1,4 +1,4 @@
-import { Handle, HandleUserData } from '@/editor/lib/widget/Handle'
+import { HandleUserData } from '@/editor/lib/widget/Handle'
 import type { IHandle, IWidget } from '@/editor/lib/widget/IWidget'
 import { ArrowHelper, Color, LineBasicMaterial, Mesh, MeshBasicMaterial } from 'three'
 

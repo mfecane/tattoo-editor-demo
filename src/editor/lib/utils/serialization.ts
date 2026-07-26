@@ -5,7 +5,7 @@ import { BufferGeometry, Camera, Material, Object3D, Scene, Texture, WebGLRender
  * This prevents circular references and React/DOM element references from causing errors.
  */
 export function safeSerialize(obj: unknown): string {
-	return JSON.stringify(obj, (key, value) => {
+	return JSON.stringify(obj, (_key, value) => {
 		if (value && typeof value === 'object') {
 			if ('__reactFiber$' in value || '__reactInternalInstance$' in value) {
 				return undefined

@@ -40,8 +40,6 @@ export class BentTubeGeometry extends BufferGeometry {
 		}
 		const frames: Frame[] = []
 
-		const referenceDir = new Vector3(1, 0, 0)
-
 		for (let i = 0; i < curvePoints.length; i++) {
 			const tangent = tangents[i]
 

@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import React, { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect } from 'react'
 
 interface DesignImageCropModalProps {
 	isOpen: boolean
@@ -75,10 +75,10 @@ export default function DesignImageCropModal({
 			<div className="fixed inset-0 bg-black/50" onClick={onClose} />
 
 			{/* Modal */}
-			<div className="relative z-50 w-full max-w-2xl rounded-lg border border-gray-800 bg-gray-900 p-6 shadow-lg">
-				<h2 className="mb-4 text-lg font-semibold text-gray-100">Crop Image</h2>
+			<div className="relative z-50 w-full max-w-2xl rounded-lg border border-neutral-800 bg-neutral-900 p-6 shadow-lg">
+				<h2 className="mb-4 text-lg font-semibold text-neutral-100">Crop Image</h2>
 
-				<div className="mb-6 flex items-center justify-center overflow-hidden rounded border border-gray-800 bg-gray-950">
+				<div className="mb-6 flex items-center justify-center overflow-hidden rounded border border-neutral-800 bg-neutral-950">
 					<canvas ref={canvasRef} className="max-h-[60vh] max-w-full object-contain" />
 				</div>
 

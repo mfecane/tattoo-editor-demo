@@ -15,7 +15,7 @@ const Loader = React.forwardRef<HTMLDivElement, LoaderProps>(({ className, size 
 
 	return (
 		<div ref={ref} className={cn('flex items-center justify-center', className)} {...props}>
-			<Loader2 className={cn('animate-spin text-gray-400', sizeClasses[size])} />
+			<Loader2 className={cn('animate-spin text-neutral-400', sizeClasses[size])} />
 		</div>
 	)
 })

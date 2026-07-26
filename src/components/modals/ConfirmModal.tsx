@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button'
-import React from 'react'
 
 interface ConfirmModalProps {
 	isOpen: boolean
@@ -30,9 +29,9 @@ export default function ConfirmModal({
 			<div className="fixed inset-0 bg-black/50" onClick={onCancel} />
 
 			{/* Modal */}
-			<div className="relative z-50 w-full max-w-md rounded-lg border border-gray-800 bg-gray-900 p-6 shadow-lg">
-				<h2 className="mb-2 text-lg font-semibold text-gray-100">{title}</h2>
-				<p className="mb-6 text-sm text-gray-400">{description}</p>
+			<div className="relative z-50 w-full max-w-md rounded-lg border border-neutral-800 bg-neutral-900 p-6 shadow-lg">
+				<h2 className="mb-2 text-lg font-semibold text-neutral-100">{title}</h2>
+				<p className="mb-6 text-sm text-neutral-400">{description}</p>
 
 				<div className="flex justify-end gap-3">
 					<Button variant="outline" onClick={onCancel}>

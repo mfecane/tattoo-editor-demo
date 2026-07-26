@@ -1,37 +1,49 @@
-import { AddStampCommand } from '@/editor/main/commands/AddStampCommand'
-import { ClearStampsCommand } from '@/editor/main/commands/ClearStampsCommand'
-import { RemoveStampCommand } from '@/editor/main/commands/RemoveStampCommand'
-import { ReorderStampsCommand } from '@/editor/main/commands/ReorderStampsCommand'
-import { SetSelectedStampIdCommand } from '@/editor/main/commands/SetSelectedStampIdCommand'
-import { UpdateStampCommand } from '@/editor/main/commands/UpdateStampCommand'
+import { AddPlacedMeshCommand } from '@/editor/main/commands/AddPlacedMeshCommand'
+import { PersistRegionsCommand } from '@/editor/main/commands/PersistRegionsCommand'
+import { RemovePlacedMeshCommand } from '@/editor/main/commands/RemovePlacedMeshCommand'
+import { PlacedMeshTransform, UpdatePlacedMeshCommand } from '@/editor/main/commands/UpdatePlacedMeshCommand'
+import { UnwrapPlacedMeshCommand } from '@/editor/main/commands/UnwrapPlacedMeshCommand'
+import { UpdateWrappedMeshVerticesCommand } from '@/editor/main/commands/UpdateWrappedMeshVerticesCommand'
+import { WrapPlacedMeshCommand } from '@/editor/main/commands/WrapPlacedMeshCommand'
 import { EditorCommand } from '@/editor/main/EditorCommand'
 import { EditorController } from '@/editor/main/EditorController'
-import type { SerializableStampData } from '@/editor/types/projectTypes'
+import { RegionShape } from '@/editor/polygon/RegionShape'
+import type { Mesh, Texture } from 'three'
 
 export class CommandFactory {
 	public constructor(private readonly controller: EditorController) {}
 
-	public createAddCommand(stampData: Omit<SerializableStampData, 'id'> & { id?: string }): EditorCommand {
-		return new AddStampCommand(stampData, this.controller)
+	// Returns the concrete command (not the EditorCommand interface) so the caller can read getPlacedMeshId() after execute().
+	public createAddPlacedMeshCommand(mesh: Mesh, sourceShape: RegionShape, texture: Texture, sketchAspect: number): AddPlacedMeshCommand {
+		return new AddPlacedMeshCommand(mesh, sourceShape, texture, sketchAspect, this.controller)
 	}
 
-	public createRemoveCommand(index: number): EditorCommand {
-		return new RemoveStampCommand(index, this.controller)
+	public createRemovePlacedMeshCommand(placedMeshId: string): EditorCommand {
+		return new RemovePlacedMeshCommand(placedMeshId, this.controller)
 	}
 
-	public createUpdateCommand(stampId: string, updates: Partial<Omit<SerializableStampData, 'id'>>): EditorCommand {
-		return new UpdateStampCommand(stampId, updates, this.controller)
+	public createUpdatePlacedMeshCommand(
+		placedMeshId: string,
+		before: PlacedMeshTransform,
+		after: PlacedMeshTransform
+	): EditorCommand {
+		return new UpdatePlacedMeshCommand(placedMeshId, before, after, this.controller)
 	}
 
-	public createReorderCommand(newOrder: number[]): EditorCommand {
-		return new ReorderStampsCommand(newOrder, this.controller)
+	public createPersistRegionsCommand(sketchId: string, regions: RegionShape[]): EditorCommand {
+		return new PersistRegionsCommand(sketchId, regions, this.controller)
 	}
 
-	public createClearStampsCommand(): EditorCommand {
-		return new ClearStampsCommand(this.controller)
+	// Returns the concrete command (not the EditorCommand interface) so the caller can read didSucceed() after execute().
+	public createWrapPlacedMeshCommand(placedMeshId: string): WrapPlacedMeshCommand {
+		return new WrapPlacedMeshCommand(placedMeshId, this.controller)
 	}
 
-	public createSetSelectedStampIdCommand(stampId: string | null): EditorCommand {
-		return new SetSelectedStampIdCommand(stampId, this.controller)
+	public createUnwrapPlacedMeshCommand(placedMeshId: string): EditorCommand {
+		return new UnwrapPlacedMeshCommand(placedMeshId, this.controller)
+	}
+
+	public createUpdateWrappedMeshVerticesCommand(placedMeshId: string, before: Float32Array, after: Float32Array): EditorCommand {
+		return new UpdateWrappedMeshVerticesCommand(placedMeshId, before, after, this.controller)
 	}
 }

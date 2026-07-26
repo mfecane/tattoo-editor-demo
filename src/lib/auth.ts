@@ -1,6 +1,18 @@
 /**
- * Stub that re-exports from editor-integration.
- * This allows editor code to import from @/lib/auth without changes.
+ * Stub implementation of auth.
+ * Placeholder for future authentication integration.
  */
 
-export { useAuth, type User } from '@/editor-integration/lib/auth'
+export interface User {
+	id: string
+	email: string
+	name?: string
+}
+
+export function useAuth() {
+	return {
+		user: null as User | null,
+		isLoading: false,
+		error: null as Error | null,
+	}
+}

@@ -34,7 +34,7 @@ export function ViewSettings() {
 			</PopoverTrigger>
 			<PopoverContent className="w-80 p-0" align="start" side="left">
 				<div className="space-y-6">
-					<div className="space-y-2 bg-gray-950 rounded-t-md p-2 px-4 mb-2">
+					<div className="space-y-2 bg-neutral-950 rounded-t-md p-2 px-4 mb-2">
 						<h4 className="font-bold text-sm">View Settings</h4>
 					</div>
 

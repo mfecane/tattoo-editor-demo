@@ -3,14 +3,15 @@ import { InteractionContext } from '@/editor/interaction/InteractionContext'
 import { InteractionEvent } from '@/editor/interaction/InteractionEvent'
 import { InteractionHandler } from '@/editor/interaction/InteractionHandler'
 import { InteractionHandlerRouter } from '@/editor/interaction/InteractionHandlerRouter'
-import { BrushInteractionHandler } from '@/editor/interaction/handlers/BrushInteractionHandler'
 import { DragInteractionHandler } from '@/editor/interaction/handlers/DragInteractionHandler'
 import { HoverInteractionHandler } from '@/editor/interaction/handlers/HoverInteractionHandler'
-import { MoveInteractionHandler } from '@/editor/interaction/handlers/MoveInteractionHandler'
+import { MovePlacedMeshInteractionHandler } from '@/editor/interaction/handlers/MovePlacedMeshInteractionHandler'
 import { OrbitInteractionHandler } from '@/editor/interaction/handlers/OrbitInteractionHandler'
-import { ResizeInteractionHandler } from '@/editor/interaction/handlers/ResizeInteractionHandler'
-import { RotateInteractionHandler } from '@/editor/interaction/handlers/RotateInteractionHandler'
+import { PlacementInteractionHandler } from '@/editor/interaction/handlers/PlacementInteractionHandler'
+import { ResizePlacedMeshInteractionHandler } from '@/editor/interaction/handlers/ResizePlacedMeshInteractionHandler'
+import { RotatePlacedMeshInteractionHandler } from '@/editor/interaction/handlers/RotatePlacedMeshInteractionHandler'
 import { SelectionInteractionHandler } from '@/editor/interaction/handlers/SelectionInteractionHandler'
+import { SlideVertexInteractionHandler } from '@/editor/interaction/handlers/SlideVertexInteractionHandler'
 import { Editor } from '@/editor/main/Editor'
 import { PerspectiveCamera, Raycaster, Vector2 } from 'three'
 
@@ -55,12 +56,13 @@ export class CanvasEventHandler {
 		this.context = new InteractionContext(this.editor)
 		this.handlers = [
 			new SelectionInteractionHandler(this.editor),
-			new ResizeInteractionHandler(this.editor),
-			new RotateInteractionHandler(this.editor),
-			new MoveInteractionHandler(this.editor),
+			new ResizePlacedMeshInteractionHandler(this.editor),
+			new RotatePlacedMeshInteractionHandler(this.editor),
+			new MovePlacedMeshInteractionHandler(this.editor),
+			new SlideVertexInteractionHandler(this.editor),
 			new DragInteractionHandler(this.editor),
-			new BrushInteractionHandler(this.editor),
-			new HoverInteractionHandler(),
+			new PlacementInteractionHandler(this.editor),
+			new HoverInteractionHandler(this.editor),
 			new OrbitInteractionHandler(this.editor),
 		]
 		this.handlerRouter = new InteractionHandlerRouter(this.handlers)

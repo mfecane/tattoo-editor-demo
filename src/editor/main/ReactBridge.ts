@@ -1,54 +1,74 @@
+import { VERTEX_SLIDE_CONSTANTS } from '@/editor/constants'
 import { worldToScreen } from '@/editor/lib/utils'
 import { Editor } from '@/editor/main/Editor'
-import { RuntimeStamp } from '@/editor/main/RuntimeStamp'
+import { EDITOR_HINT_TEXT, EditorHint } from '@/editor/main/EditorHint'
+import { SketchEditorTarget } from '@/editor/main/EditorController'
 import { EditorToolId } from '@/editor/main/tools/EditorTool'
+import { RegionShape } from '@/editor/polygon/RegionShape'
 import { Vector2 } from 'three'
 
 interface EditorUIState {
-	stampContextMenuVisible: boolean
-	stampContextMenuPosition: Vector2 | null
-	isBrushMode: boolean
-	isBrushActive: boolean
+	selectionContextMenuVisible: boolean
+	selectionContextMenuPosition: Vector2 | null
 	tool: EditorToolId
-	brushSize: number
-	brushStrength: number
 	widgetsVisible: boolean
 	lightRotation: number
-	selectedStampId: string | null
-	stamps: RuntimeStamp[]
+	slideVertexFalloffRadius: number
+	selectedPlacedMeshId: string | null
+	selectedPlacedMeshWrapped: boolean
+	/** Whether the live wrap-preview ghost currently shown for the selected flat mesh would succeed. Null until the debounced preview has run once. */
+	selectedPlacedMeshWrapPreviewValid: boolean | null
+	regionEditorTarget: SketchEditorTarget | null
+	sketchEditorTarget?: { sketchId: string; sketchUrl: string } | null
+	hint: EditorHint
 }
 
 export class ReactBridge {
 	// Shared UI snapshot consumed by React components.
 	public state: EditorUIState = {
-		stampContextMenuVisible: false,
-		stampContextMenuPosition: null,
-		isBrushMode: false,
-		isBrushActive: false,
+		selectionContextMenuVisible: false,
+		selectionContextMenuPosition: null,
 		tool: EditorToolId.Select,
-		brushSize: 0.2,
-		brushStrength: 0.02,
 		widgetsVisible: true,
 		lightRotation: 0,
-		selectedStampId: null,
-		stamps: [],
+		slideVertexFalloffRadius: VERTEX_SLIDE_CONSTANTS.FALLOFF_RADIUS,
+		selectedPlacedMeshId: null,
+		selectedPlacedMeshWrapped: false,
+		selectedPlacedMeshWrapPreviewValid: null,
+		regionEditorTarget: null,
+		hint: EditorHint.NoMeshesPlaced,
 	}
 
 	// External subscriptions used by useReactBridge.
 	public callbacks: Set<() => void> = new Set()
 	private controlsListenerAttached: boolean = false
-	private readonly handleControlsChange = (): void => this.refreshStampContextMenuPosition()
+	private readonly handleControlsChange = (): void => this.refreshSelectionContextMenuPosition()
 
 	public constructor(public readonly editor: Editor) {
-		this.editor.controller.subscribe(() => this.notifySubscribers())
+		this.editor.controller.subscribe(() => {
+			// The one place `tool` gets refreshed - every path that changes the active tool
+			// (including EditorController.syncActiveToolToTarget's forced fallback to Select,
+			// which no action method here calls directly) goes through EditorController.setActiveTool,
+			// which always notifies here. Deriving from controller.getState() instead of mirroring
+			// it ad hoc in each action method is what keeps the toolbar highlight from ever
+			// going stale/desynced from the real active tool.
+			this.refreshTool()
+			// Catches wrap-preview updates from the debounced ghost recompute, which mutates the
+			// controller and notifies but has no ReactBridge call site of its own.
+			this.refreshSelectionMirror()
+			this.refreshHint()
+			this.notifySubscribers()
+		})
 		this.editor.controller.historyController.subscribe(() => this.notifySubscribers())
-		this.editor.controller.project.stampList.setOnUpdateCallback(() => this.update())
+		this.refreshTool()
+		this.refreshHint()
 	}
 
 	public applyInitialViewSettings(): void {
 		this.editor.overlayScene.visible = this.state.widgetsVisible
 		this.editor.setLightRotation(this.state.lightRotation)
 		this.editor.setBackgroundRotation(this.state.lightRotation)
+		this.editor.controller.setSlideVertexFalloffRadius(this.state.slideVertexFalloffRadius)
 	}
 
 	// Core bridge subscription lifecycle.
@@ -93,98 +113,34 @@ export class ReactBridge {
 		return this.editor.controller.historyController.getState()
 	}
 
-	// Tool selection actions.
+	// Tool selection actions. Each just tells the controller to switch tools - controller.subscribe
+	// (see constructor) is what mirrors the resulting activeToolId into state.tool, so there's no
+	// separate `updateState({ tool: ... })` here to forget or get out of sync.
 	public setSelectTool(): void {
 		this.editor.controller.setActiveTool(this.editor.controller.getSelectTool())
-		this.updateState({ tool: EditorToolId.Select })
 	}
 
 	public handleMove(): void {
 		this.editor.controller.setActiveTool(this.editor.controller.getMoveTool())
-		this.updateState({ tool: EditorToolId.Move })
 	}
 
 	public handleResize(): void {
 		this.editor.controller.setActiveTool(this.editor.controller.getScaleTool())
-		this.updateState({ tool: EditorToolId.Scale })
 	}
 
 	public handleRotate(): void {
 		this.editor.controller.setActiveTool(this.editor.controller.getRotateTool())
-		this.updateState({ tool: EditorToolId.Rotate })
 	}
 
 	public handleDelete(): void {
-		const selectedIndex = this.editor.controller.getSelectedIndex()
-		if (selectedIndex === null) return
-		this.editor.controller.historyController.execute(this.editor.commandFactory.createRemoveCommand(selectedIndex))
-		this.setStampContextMenuPosition(null)
-	}
-
-	public handleExitWidget(): void {
-		this.setSelectTool()
-	}
-
-	// Brush workflow actions.
-	public handleBrush(): void {
-		this.editor.controller.setActiveTool(this.editor.controller.getBrushTool())
-		this.enterBrush()
-	}
-
-	public handleExitBrush(): void {
-		this.exitBrush()
-	}
-
-	public enterBrush(): void {
+		this.editor.controller.deleteSelectedPlacedMesh()
+		this.setSelectionContextMenuPosition(null)
 		this.updateState({
-			isBrushMode: true,
-			isBrushActive: false,
+			selectedPlacedMeshId: null,
+			selectedPlacedMeshWrapped: false,
+			selectedPlacedMeshWrapPreviewValid: null,
 		})
-	}
-
-	public exitBrush(): void {
-		this.editor.controller.setActiveTool(this.editor.controller.getSelectTool())
-		this.updateState({
-			isBrushMode: false,
-			isBrushActive: false,
-		})
-	}
-
-	public setBrushActive(active: boolean): void {
-		if (this.state.isBrushActive === active) {
-			return
-		}
-
-		this.updateState({
-			isBrushActive: active,
-		})
-	}
-
-	public setBrushSize(size: number): void {
-		this.state = {
-			...this.state,
-			brushSize: size,
-		}
-		this.notifySubscribers()
-	}
-
-	public setBrushStrength(strength: number): void {
-		this.state = {
-			...this.state,
-			brushStrength: strength,
-		}
-		this.notifySubscribers()
-	}
-
-	public handleResetLattice(): void {
-		const selectedStamp = this.editor.controller.getSelectedStamp()
-		const latticeMesh = selectedStamp?.latticeMesh ?? null
-		const asset = this.editor.previewMesh.mesh
-
-		if (!latticeMesh || !asset) return
-
-		latticeMesh.resetVertices()
-		this.editor.controller.latticeNeedsRender = true
+		this.refreshHint()
 	}
 
 	// View settings actions.
@@ -203,58 +159,152 @@ export class ReactBridge {
 		})
 	}
 
-	// Stamp selection + context menu actions.
-	public setSelectedStampId(stampId: string | null): void {
-		this.editor.controller.setSelectedStampId(stampId)
-		this.updateState({ selectedStampId: stampId })
+	public setSlideVertexFalloffRadius(radius: number): void {
+		this.editor.controller.setSlideVertexFalloffRadius(radius)
+		this.updateState({
+			slideVertexFalloffRadius: radius,
+		})
 	}
 
-	public refreshStampContextMenuPosition(): void {
-		const selectedStamp = this.editor.controller.getSelectedStamp()
-		if (!selectedStamp) {
+	// Placed-mesh selection + context menu actions.
+	public setSelectedPlacedMeshId(placedMeshId: string | null): void {
+		this.editor.controller.setSelectedPlacedMeshId(placedMeshId)
+		this.updateState({ selectedPlacedMeshId: placedMeshId })
+		this.refreshSelectionMirror()
+		this.refreshHint()
+	}
+
+	public handleWrap(): void {
+		this.editor.controller.wrapSelectedPlacedMesh()
+		this.refreshSelectionMirror()
+		this.refreshHint()
+	}
+
+	public handleUnwrap(): void {
+		this.editor.controller.unwrapSelectedPlacedMesh()
+		this.refreshSelectionMirror()
+		this.refreshHint()
+	}
+
+	public handleRelax(strength: number, iterations: number, boundaryWeight: number): void {
+		this.editor.controller.relaxSelectedPlacedMesh(strength, iterations, boundaryWeight)
+	}
+
+	/** Mirrors the controller's real activeToolId - the only source of truth for which tool is active, never mutated independently by an action method (see setSelectTool/handleMove/handleResize/handleRotate). */
+	private refreshTool(): void {
+		this.updateState({ tool: this.editor.controller.getState().activeToolId })
+	}
+
+	/** Re-reads wrapped/wrapPreviewValid off the selected entry - the source of truth for both lives on Piece, not in this cached UI state. */
+	private refreshSelectionMirror(): void {
+		const entry = this.editor.controller.getSelectedPlacedMesh()
+		this.updateState({
+			selectedPlacedMeshWrapped: entry?.kind === 'drapedPatch',
+			selectedPlacedMeshWrapPreviewValid: entry?.wrapPreviewValid ?? null,
+		})
+	}
+
+	// Help overlay hint.
+	public setHint(hint: EditorHint): void {
+		if (this.state.hint === hint) {
+			return
+		}
+		this.updateState({ hint })
+	}
+
+	public getHintText(): string | null {
+		return EDITOR_HINT_TEXT[this.state.hint]
+	}
+
+	/** Derives the current hint from controller state - called at every meaningful transition (tool/selection/wrap changes) instead of being tracked as its own independent piece of state. */
+	private refreshHint(): void {
+		const activeToolId = this.editor.controller.getState().activeToolId
+
+		if (this.editor.controller.project.placedMeshList.getAll().length === 0) {
+			this.setHint(EditorHint.NoMeshesPlaced)
 			return
 		}
 
-		const worldPosition = selectedStamp.getPosition3D()
+		if (activeToolId === EditorToolId.Placement) {
+			this.setHint(EditorHint.PlacementActive)
+			return
+		}
+
+		if (activeToolId !== EditorToolId.Select) {
+			this.setHint(EditorHint.WidgetActive)
+			return
+		}
+
+		if (!this.state.selectedPlacedMeshId) {
+			this.setHint(EditorHint.SelectToInspect)
+			return
+		}
+
+		this.setHint(this.state.selectedPlacedMeshWrapped ? EditorHint.MeshSelectedWrapped : EditorHint.MeshSelectedFlat)
+	}
+
+	public refreshSelectionContextMenuPosition(): void {
+		const worldPosition = this.editor.controller.getSelectedPlacedMesh()?.mesh.position
+		if (!worldPosition) {
+			return
+		}
+
 		const screenPos = worldToScreen(worldPosition, this.editor.camera, this.editor.getDomElement())
 		this.updateState({
-			stampContextMenuPosition: new Vector2(screenPos.x, screenPos.y),
+			selectionContextMenuPosition: new Vector2(screenPos.x, screenPos.y),
+			selectionContextMenuVisible: true,
 		})
 	}
 
-	public setStampContextMenuPosition(position: Vector2 | null): void {
+	public setSelectionContextMenuPosition(position: Vector2 | null): void {
 		this.updateState({
-			stampContextMenuPosition: position,
-			stampContextMenuVisible: position !== null,
+			selectionContextMenuPosition: position,
+			selectionContextMenuVisible: position !== null,
 		})
 	}
 
-	public hideStampContextMenu(): void {
-		if (!this.state.stampContextMenuVisible) {
-			return
-		}
-		this.updateState({
-			stampContextMenuVisible: false,
-		})
+	// Region editor actions.
+	public openRegionEditor(sketchId: string, sketchUrl: string): void {
+		this.editor.controller.openRegionEditor({ sketchId, sketchUrl })
+		this.updateState({ sketchEditorTarget: { sketchId, sketchUrl } })
 	}
 
-	public showStampContextMenu(): void {
-		this.updateState({
-			stampContextMenuVisible: true,
-		})
+	public closeRegionEditor(): void {
+		this.editor.controller.closeRegionEditor()
+		this.updateState({ sketchEditorTarget: null })
+	}
+
+	public async placeSelectedPolygonOnMesh(imageUrl: string, shape: RegionShape): Promise<void> {
+		await this.editor.controller.beginPolygonMeshPlacement(imageUrl, shape)
+		this.closeRegionEditor()
+	}
+
+	public getStoredRegions(sketchId: string): RegionShape[] {
+		return this.editor.controller.sketchRegionStore.getRegions(sketchId)
+	}
+
+	public persistRegions(sketchId: string, regions: RegionShape[]): void {
+		this.editor.controller.historyController.execute(
+			this.editor.commandFactory.createPersistRegionsCommand(sketchId, regions)
+		)
+	}
+
+	public getPlacedMeshes() {
+		return this.editor.controller.project.placedMeshList.getAll()
+	}
+
+	public movePlacedMesh(fromIndex: number, toIndex: number): void {
+		this.editor.controller.project.placedMeshList.moveEntry(fromIndex, toIndex)
+		this.notifySubscribers()
+	}
+
+	public getRenderer() {
+		return this.editor.renderer
 	}
 
 	private notifySubscribers(): void {
 		for (const callback of this.callbacks) {
 			callback()
 		}
-	}
-
-	private async update(): Promise<void> {
-		const state = this.state
-		state.selectedStampId = this.editor.controller.getSelectedStampId()
-		state.stamps = this.editor.controller.project.stampList.getStamps()
-		this.state = { ...state }
-		this.notifySubscribers()
 	}
 }
