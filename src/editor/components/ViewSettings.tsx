@@ -2,18 +2,25 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Slider } from '@/components/ui/slider'
-import { Switch } from '@/components/ui/switch'
+import { useClickOutside } from '@/editor/hooks/useClickOutside'
 import { useReactBridgeContext } from '@/editor/hooks/useReactBridge'
-import { Settings } from 'lucide-react'
+import { Lightbulb, Settings } from 'lucide-react'
+import { useRef, useState } from 'react'
 
 export function ViewSettings() {
 	const reactBridge = useReactBridgeContext()
+
+	const [open, setOpen] = useState(false)
+	const triggerRef = useRef<HTMLButtonElement>(null)
+	const contentRef = useRef<HTMLDivElement>(null)
+
+	useClickOutside([triggerRef, contentRef], () => setOpen(false), open)
 
 	if (!reactBridge) {
 		return null
 	}
 
-	const { widgetsVisible, lightRotation } = reactBridge.state
+	const { lightRotation } = reactBridge.state
 
 	const handleLightRotationChange = (values: number[]) => {
 		const rotation = values[0]
@@ -21,37 +28,29 @@ export function ViewSettings() {
 	}
 
 	return (
-		<Popover>
+		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
-				<Button
-					variant="outline"
-					size="icon"
-					className="absolute top-4 right-4 z-50 bg-surface border border-border shadow-lg hover:bg-accent"
-					aria-label="View settings"
-				>
+				<Button ref={triggerRef} variant="ghost" size="icon" aria-label="View settings">
 					<Settings className="h-4 w-4" />
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent className="w-80 p-0" align="start" side="left">
+			<PopoverContent
+				ref={contentRef}
+				data-id="view-settings-panel"
+				className="w-80 p-0"
+				align="end"
+				side="bottom"
+				sideOffset={12}
+			>
 				<div className="space-y-6">
 					<div className="space-y-2 bg-neutral-950 rounded-t-md p-2 px-4 mb-2">
 						<h4 className="font-bold text-sm">View Settings</h4>
 					</div>
 
 					<div className="space-y-4 p-2 px-4 pb-6">
-						<div className="flex items-center justify-between">
-							<Label htmlFor="widgets-toggle" className="text-sm">
-								Display Widgets
-							</Label>
-							<Switch
-								id="widgets-toggle"
-								checked={widgetsVisible}
-								onCheckedChange={(checked) => reactBridge.setWidgetsVisible(checked)}
-							/>
-						</div>
-
-						<Label htmlFor="light-rotation" className="text-sm">
-							Light Rotation
+						<Label htmlFor="light-rotation" className="text-sm flex items-center gap-2">
+							<Lightbulb className="w-4 h-4" />
+							Light Position
 						</Label>
 						<div className="mt-4">
 							<Slider

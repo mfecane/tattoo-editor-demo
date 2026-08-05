@@ -1,8 +1,8 @@
 import { VERTEX_SLIDE_CONSTANTS } from '@/editor/constants'
 import { HandleUserData } from '@/editor/lib/widget/Handle'
 import { IHandle, IWidget } from '@/editor/lib/widget/IWidget'
+import { TransformHandleId } from '@/editor/lib/widget/TransformHandleLayout'
 import { Editor } from '@/editor/main/Editor'
-import { EditorToolId } from '@/editor/main/tools/EditorTool'
 import { Intersection, Mesh, Object3D, Raycaster, Vector3 } from 'three'
 
 export enum HitResultType {
@@ -25,7 +25,7 @@ export interface HitResult {
 	type: HitResultType
 	object?: Object3D
 	intersection?: Intersection
-	handleType?: 'x' | 'y' | 'center'
+	handleType?: TransformHandleId
 	widget?: IWidget
 	handle?: IHandle
 	payload?: unknown
@@ -40,72 +40,18 @@ export class HitTester {
 		const bodyMesh = this.editor.previewMesh.mesh
 
 		const handleIntersects = raycaster.intersectObjects(this.colliders, false)
-		if (handleIntersects.length > 0) {
-			const handleIntersection = handleIntersects[0]
-			const userData = handleIntersection.object.userData as Partial<HandleUserData> & {
-				isRotateHandle?: boolean
-				isHitTest?: boolean
-			}
-			const payload = userData.payload as { handleType?: 'x' | 'y' | 'center' } | undefined
+		const handleIntersection = this.pickHandleIntersection(handleIntersects)
+		if (handleIntersection) {
+			const userData = handleIntersection.object.userData as Partial<HandleUserData>
 
 			if (
 				userData.widget !== undefined &&
 				userData.widget !== null &&
-				typeof userData.widget.getType === 'function'
+				typeof userData.widget.getHandleHitResult === 'function'
 			) {
-				const widgetType = userData.widget.getType()
-
-				if (widgetType === EditorToolId.Move && payload && payload.handleType) {
-					return {
-						type: HitResultType.MoveHandle,
-						object: handleIntersection.object,
-						intersection: handleIntersection,
-						handleType: payload.handleType,
-						payload: userData.payload,
-						widget: userData.widget,
-						handle: userData.handle,
-					}
-				}
-
-				if (widgetType === 'scaling' && payload && payload.handleType) {
-					return {
-						type: HitResultType.ResizeHandle,
-						object: handleIntersection.object,
-						intersection: handleIntersection,
-						handleType: payload.handleType,
-						payload: userData.payload,
-						widget: userData.widget,
-						handle: userData.handle,
-					}
-				}
-
-				if (widgetType === 'rotate') {
-					return {
-						type: HitResultType.RotateHandle,
-						object: handleIntersection.object,
-						intersection: handleIntersection,
-						payload: userData.payload,
-						widget: userData.widget,
-						handle: userData.handle,
-					}
-				}
-
-				return {
-					type: HitResultType.WidgetHandle,
-					object: handleIntersection.object,
-					intersection: handleIntersection,
-					payload: userData.payload,
-					widget: userData.widget,
-					handle: userData.handle,
-				}
-			}
-
-			if (userData.isHitTest === true && userData.isRotateHandle === true) {
-				return {
-					type: HitResultType.RotateHandle,
-					object: handleIntersection.object,
-					intersection: handleIntersection,
-					payload: userData.payload,
+				const widgetHitResult = userData.widget.getHandleHitResult(handleIntersection.object, handleIntersection)
+				if (widgetHitResult) {
+					return widgetHitResult
 				}
 			}
 
@@ -138,6 +84,17 @@ export class HitTester {
 		}
 
 		return { type: HitResultType.Empty }
+	}
+
+	/**
+	 * A body/move collider that overlaps a corner/edge/rotate handle collider must lose to it
+	 * regardless of which is nearer along the ray - a handle sitting flush on the patch surface
+	 * can be marginally farther from the camera than the body plane beneath it. Falls back to
+	 * the nearest hit (which may itself be the body collider) when nothing else is under the ray.
+	 */
+	private pickHandleIntersection(intersects: Intersection[]): Intersection | null {
+		const nonBodyHit = intersects.find((hit) => !(hit.object.userData as Partial<HandleUserData>).isBodyCollider)
+		return nonBodyHit ?? intersects[0] ?? null
 	}
 
 	/**

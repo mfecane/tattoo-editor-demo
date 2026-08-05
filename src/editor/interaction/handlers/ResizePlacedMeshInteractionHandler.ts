@@ -1,18 +1,22 @@
+import { PLACED_MESH_CONSTANTS } from '@/editor/constants'
 import { CanvasEventType } from '@/editor/interaction/CanvasEventType'
 import { InteractionEvent } from '@/editor/interaction/InteractionEvent'
 import { InteractionHandler } from '@/editor/interaction/InteractionHandler'
 import { InteractionHandlerResult } from '@/editor/interaction/InteractionHandlerResult'
+import { MeshUtils } from '@/editor/lib/utils/MeshUtils'
+import { CORNER_HANDLE_SIGNS, EDGE_HANDLE_SIGNS, TransformHandleId, isEdgeHandle } from '@/editor/lib/widget/TransformHandleLayout'
 import { Editor } from '@/editor/main/Editor'
 import { PlacedMeshTransform } from '@/editor/main/commands/UpdatePlacedMeshCommand'
 import { PointerMathService } from '@/editor/services/PointerMathService'
 import { container } from '@/lib/di/container'
 import { Vector2, Vector3 } from 'three'
-import { PLACED_MESH_CONSTANTS } from '@/editor/constants'
 
 /**
- * Resize gesture for a selected PlacedMesh: same screen-space delta math
- * as ResizeInteractionHandler, applied to mesh.scale.x/y (clamped to a
- * plain multiplier range) instead of stampInfo.sizeX/sizeY (UV-normalized).
+ * Resize gesture for a selected PlacedMesh: screen-space mouse delta projected onto the
+ * widget's own u/v tangent axes, applied to mesh.scale.x/y (clamped to a plain multiplier
+ * range). An edge handle drives a single axis; a corner handle drives both independently,
+ * or uniformly (both from the same averaged component) while Shift is held. Direction/sign
+ * per handle comes from TransformHandleLayout, shared with the widget that lays them out.
  */
 export class ResizePlacedMeshInteractionHandler implements InteractionHandler {
 	public id: string = 'resize-placed-mesh'
@@ -24,13 +28,14 @@ export class ResizePlacedMeshInteractionHandler implements InteractionHandler {
 	private isActive: boolean = false
 	private initialMousePos: Vector2 = new Vector2()
 	private initialScale: Vector3 = new Vector3(1, 1, 1)
-	private handleType: 'x' | 'y' | 'center' = 'center'
+	private handleType: TransformHandleId | null = null
 	private mouse: Vector2 = new Vector2()
 	private activePlacedMeshId: string | null = null
 	private initialTransform: PlacedMeshTransform | null = null
 	private previewTransform: PlacedMeshTransform | null = null
 	private hasPreviewChanges: boolean = false
 	private readonly pointerMathService: PointerMathService = container.resolve<PointerMathService>('PointerMathService')
+	private readonly meshUtils: MeshUtils = container.resolve<MeshUtils>('MeshUtils')
 
 	public constructor(private readonly editor: Editor) {}
 
@@ -46,7 +51,11 @@ export class ResizePlacedMeshInteractionHandler implements InteractionHandler {
 			if (!event.context || !event.context.hitResult || event.context.hitResult.type !== 'resize-handle') {
 				return new InteractionHandlerResult().setPass()
 			}
-			this.handleType = event.context.hitResult.handleType || 'center'
+			const handleType = event.context.hitResult.handleType
+			if (!handleType) {
+				throw new Error('Resize handle hit result is missing handleType')
+			}
+			this.handleType = handleType
 			return this.handleMoveStart(event)
 		}
 
@@ -81,7 +90,7 @@ export class ResizePlacedMeshInteractionHandler implements InteractionHandler {
 		this.initialMousePos.copy(mouse)
 
 		const controller = editor.controller
-		const widget = controller.getScaleTool().getWidget()
+		const widget = controller.getTransformTool().getWidget()
 		const entry = controller.getSelectedPlacedMesh()
 		if (!entry || !widget) {
 			return new InteractionHandlerResult().setPass()
@@ -107,7 +116,7 @@ export class ResizePlacedMeshInteractionHandler implements InteractionHandler {
 		const editor = this.editor
 		const raycaster = event.context.raycaster
 		const mouse = event.context.mouse
-		if (!raycaster || !mouse || !this.initialTransform || !this.activePlacedMeshId) {
+		if (!raycaster || !mouse || !this.initialTransform || !this.activePlacedMeshId || !this.handleType) {
 			return new InteractionHandlerResult().setHandled()
 		}
 
@@ -123,7 +132,7 @@ export class ResizePlacedMeshInteractionHandler implements InteractionHandler {
 		const deltaMouse = new Vector2(this.mouse.x - this.initialMousePos.x, this.mouse.y - this.initialMousePos.y)
 
 		const controller = editor.controller
-		const widget = controller.getScaleTool().getWidget()
+		const widget = controller.getTransformTool().getWidget()
 		const entry = controller.project.placedMeshList.getById(this.activePlacedMeshId)
 		if (!widget || !entry) {
 			return new InteractionHandlerResult().setHandled()
@@ -144,26 +153,40 @@ export class ResizePlacedMeshInteractionHandler implements InteractionHandler {
 		const screenU = new Vector2(uScreen.x - widgetScreen.x, uScreen.y - widgetScreen.y).normalize()
 		const screenV = new Vector2(vScreen.x - widgetScreen.x, vScreen.y - widgetScreen.y).normalize()
 
-		let scaleX = this.initialScale.x
-		let scaleY = this.initialScale.y
+		const uComponent = deltaMouse.dot(screenU)
+		const vComponent = deltaMouse.dot(screenV)
+
 		const clamp = (value: number) => Math.max(PLACED_MESH_CONSTANTS.MIN_SCALE, Math.min(PLACED_MESH_CONSTANTS.MAX_SCALE, value))
 
-		if (this.handleType === 'x') {
-			const uComponent = deltaMouse.dot(screenU)
-			scaleX = clamp(this.initialScale.x * (1 + uComponent * PLACED_MESH_CONSTANTS.SCALING_FACTOR))
-		} else if (this.handleType === 'y') {
-			const vComponent = deltaMouse.dot(screenV)
-			scaleY = clamp(this.initialScale.y * (1 + vComponent * PLACED_MESH_CONSTANTS.SCALING_FACTOR))
-		} else if (this.handleType === 'center') {
-			const uComponent = deltaMouse.dot(screenU)
-			const vComponent = deltaMouse.dot(screenV)
-			const avgComponent = (uComponent + vComponent) / 2
-			const scaleFactor = 1 + avgComponent * PLACED_MESH_CONSTANTS.SCALING_FACTOR
-			scaleX = clamp(this.initialScale.x * scaleFactor)
-			scaleY = clamp(this.initialScale.y * scaleFactor)
+		let scaleX = this.initialScale.x
+		let scaleY = this.initialScale.y
+
+		if (isEdgeHandle(this.handleType)) {
+			const { uSign, vSign } = EDGE_HANDLE_SIGNS[this.handleType]
+			if (uSign !== 0) {
+				scaleX = clamp(this.initialScale.x * (1 + uSign * uComponent * PLACED_MESH_CONSTANTS.SCALING_FACTOR))
+			}
+			if (vSign !== 0) {
+				scaleY = clamp(this.initialScale.y * (1 + vSign * vComponent * PLACED_MESH_CONSTANTS.SCALING_FACTOR))
+			}
+		} else {
+			const { uSign, vSign } = CORNER_HANDLE_SIGNS[this.handleType]
+			if (event.modifiers.shift) {
+				const outwardComponent = (uSign * uComponent + vSign * vComponent) / 2
+				const scaleFactor = 1 + outwardComponent * PLACED_MESH_CONSTANTS.SCALING_FACTOR
+				scaleX = clamp(this.initialScale.x * scaleFactor)
+				scaleY = clamp(this.initialScale.y * scaleFactor)
+			} else {
+				scaleX = clamp(this.initialScale.x * (1 + uSign * uComponent * PLACED_MESH_CONSTANTS.SCALING_FACTOR))
+				scaleY = clamp(this.initialScale.y * (1 + vSign * vComponent * PLACED_MESH_CONSTANTS.SCALING_FACTOR))
+			}
 		}
 
 		entry.mesh.scale.set(scaleX, scaleY, entry.mesh.scale.z)
+
+		const halfExtents = this.meshUtils.computeLocalHalfExtents(entry.mesh)
+		halfExtents.multiply(new Vector2(scaleX, scaleY))
+		widget.updateBounds(halfExtents)
 
 		this.previewTransform = {
 			position: entry.mesh.position.clone(),
@@ -201,6 +224,7 @@ export class ResizePlacedMeshInteractionHandler implements InteractionHandler {
 		this.initialTransform = null
 		this.previewTransform = null
 		this.hasPreviewChanges = false
+		this.handleType = null
 
 		return new InteractionHandlerResult().setReleaseCapture()
 	}

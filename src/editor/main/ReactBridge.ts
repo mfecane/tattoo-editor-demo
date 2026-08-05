@@ -113,25 +113,6 @@ export class ReactBridge {
 		return this.editor.controller.historyController.getState()
 	}
 
-	// Tool selection actions. Each just tells the controller to switch tools - controller.subscribe
-	// (see constructor) is what mirrors the resulting activeToolId into state.tool, so there's no
-	// separate `updateState({ tool: ... })` here to forget or get out of sync.
-	public setSelectTool(): void {
-		this.editor.controller.setActiveTool(this.editor.controller.getSelectTool())
-	}
-
-	public handleMove(): void {
-		this.editor.controller.setActiveTool(this.editor.controller.getMoveTool())
-	}
-
-	public handleResize(): void {
-		this.editor.controller.setActiveTool(this.editor.controller.getScaleTool())
-	}
-
-	public handleRotate(): void {
-		this.editor.controller.setActiveTool(this.editor.controller.getRotateTool())
-	}
-
 	public handleDelete(): void {
 		this.editor.controller.deleteSelectedPlacedMesh()
 		this.setSelectionContextMenuPosition(null)
@@ -190,7 +171,7 @@ export class ReactBridge {
 		this.editor.controller.relaxSelectedPlacedMesh(strength, iterations, boundaryWeight)
 	}
 
-	/** Mirrors the controller's real activeToolId - the only source of truth for which tool is active, never mutated independently by an action method (see setSelectTool/handleMove/handleResize/handleRotate). */
+	/** Mirrors the controller's real activeToolId - the only source of truth for which tool is active. Selecting a placed mesh (see setSelectedPlacedMeshId) is what actually drives it, via EditorController.syncActiveToolToTarget - there's no separate `updateState({ tool: ... })` here to forget or get out of sync. */
 	private refreshTool(): void {
 		this.updateState({ tool: this.editor.controller.getState().activeToolId })
 	}
@@ -230,7 +211,7 @@ export class ReactBridge {
 			return
 		}
 
-		if (activeToolId !== EditorToolId.Select) {
+		if (activeToolId === EditorToolId.Transform) {
 			this.setHint(EditorHint.WidgetActive)
 			return
 		}
@@ -240,7 +221,11 @@ export class ReactBridge {
 			return
 		}
 
-		this.setHint(this.state.selectedPlacedMeshWrapped ? EditorHint.MeshSelectedWrapped : EditorHint.MeshSelectedFlat)
+		// Reaching here with a selection means Select is still the active tool despite something
+		// being selected - only possible for a wrapped drapedPatch, since selecting a flat
+		// regionMesh always switches into Transform (see EditorController.syncActiveToolToTarget)
+		// and is caught by the activeToolId !== Select branch above.
+		this.setHint(EditorHint.MeshSelectedWrapped)
 	}
 
 	public refreshSelectionContextMenuPosition(): void {

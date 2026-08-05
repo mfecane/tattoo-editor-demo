@@ -5,11 +5,9 @@
  * type with real constraints doesn't require touching the widget classes.
  */
 export interface WidgetStrategy {
-	canMoveX(): boolean
-	canMoveY(): boolean
 	canMoveCenter(): boolean
 	canResizeX(): boolean
 	canResizeY(): boolean
-	canResizeCenter(): boolean
+	canResizeCorners(): boolean
 	canRotate(): boolean
 }

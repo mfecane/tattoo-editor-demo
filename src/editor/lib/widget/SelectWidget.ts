@@ -3,7 +3,7 @@ import { Handle } from '@/editor/lib/widget/Handle'
 import { IHandle, IWidget } from '@/editor/lib/widget/IWidget'
 import { computeScreenSpaceScale } from '@/editor/lib/widget/screenSpaceScale'
 import type { Editor } from '@/editor/main/Editor'
-import { HitResult } from '@/editor/main/HitTester'
+import { HitResult, HitResultType } from '@/editor/main/HitTester'
 import { Group, Intersection, Mesh, MeshBasicMaterial, Object3D, SphereGeometry, Vector3 } from 'three'
 
 export interface SelectWidgetPayload {
@@ -66,12 +66,19 @@ export class SelectWidget implements IWidget {
 		return this.handles
 	}
 
-	getHandleType(_intersected: Object3D): 'x' | 'y' | 'center' | null {
-		throw new Error('Method not implemented.')
-	}
-
-	getHandleHitResult(_intersected: Object3D, _intersection: Intersection): HitResult | null {
-		throw new Error('Method not implemented.')
+	getHandleHitResult(intersected: Object3D, intersection: Intersection): HitResult | null {
+		const userData = intersected.userData as { handle?: IHandle; widget?: IWidget; payload?: unknown }
+		if (!userData?.handle) {
+			return null
+		}
+		return {
+			type: HitResultType.WidgetHandle,
+			object: intersected,
+			intersection,
+			payload: userData.payload,
+			widget: userData.widget,
+			handle: userData.handle,
+		}
 	}
 
 	getGroup(): Group {

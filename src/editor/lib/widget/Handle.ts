@@ -8,6 +8,8 @@ export interface HandleUserData {
 	payload: unknown
 	isHitTest: boolean
 	isHandle: boolean
+	/** Marks a widget's body/move collider so HitTester can let an overlapping handle collider win - see HitTester.pickHandleIntersection. */
+	isBodyCollider: boolean
 }
 
 export class Handle implements IHandle {
@@ -20,7 +22,8 @@ export class Handle implements IHandle {
 		private readonly collider: Mesh,
 		private readonly mesh: Mesh,
 		private readonly widget: IWidget,
-		public payload: unknown
+		public payload: unknown,
+		isBodyCollider: boolean = false
 	) {
 		this.originalColor = getSingleBasicMaterialOrThrow(this.mesh).color?.clone() ?? new Color(0x4a90e2)
 		const userData: HandleUserData = {
@@ -29,6 +32,7 @@ export class Handle implements IHandle {
 			handle: this,
 			widget: this.widget,
 			payload: this.payload,
+			isBodyCollider,
 		}
 		this.collider.userData = userData
 	}

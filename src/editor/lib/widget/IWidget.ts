@@ -15,8 +15,7 @@ export interface IWidget {
 	destroy(): void
 	getHandles(): IHandle[]
 	getGroup(): Group
-	getType(): 'scaling' | 'move' | 'rotate' | 'select'
+	getType(): 'transform' | 'select'
 	getColliders(): Mesh[]
-	getHandleType(intersected: Object3D): 'x' | 'y' | 'center' | null
 	getHandleHitResult(intersected: Object3D, intersection: Intersection): HitResult | null
 }

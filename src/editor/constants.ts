@@ -58,10 +58,34 @@ export const POLYGON_MESH_CONSTANTS = {
 } as const
 
 export const MESH_WRAP_CONSTANTS = {
+	// Which PatchFrameMarcher implementation PlacedMeshWrapper marches with - flip for comparison.
+	// 'live-frontier': fused plan+place, march order discovered live from real 3D distance (see LiveFrontierMarcher).
+	// 'dijkstra-order': legacy two-stage, march order precomputed upfront from flat local-space distance (see DijkstraOrderMarcher).
+	MARCH_ALGORITHM: 'live-frontier' as 'live-frontier' | 'dijkstra-order',
+
 	// How far off the surface (along the marching normal) reprojection rays are cast from, in world units.
 	SEARCH_OFFSET: 0.5,
 	// Total ray length, must exceed 2x SEARCH_OFFSET so it can cross the surface from either side.
 	SEARCH_DISTANCE: 1.5,
+
+	// Raycast miss fallback #1 (SurfaceReprojector): before giving up, widen the primary ray into a
+	// cone around it, one ring at a time, checking these off-axis angles (degrees) in order - catches
+	// predictions that were aimed just past a nearby patch of surface (a seam, a grazing angle, a
+	// thin gap) rather than genuinely far from it.
+	RAYCAST_CONE_RING_ANGLES_DEG: [10, 20, 35, 50],
+	// Azimuthal samples cast around the cone axis at each ring angle above.
+	RAYCAST_CONE_RAYS_PER_RING: 8,
+	// Raycast miss fallback #2: if even the widened cone hits nothing, snap to the closest point on
+	// the body surface (via a cached MeshBVH), but only within this world-unit radius - past this a
+	// miss is still a genuine miss, not a "closest point" worth pretending is the right one.
+	RAYCAST_CLOSEST_POINT_MAX_DISTANCE: 1.5,
+
+	// A vertex's prediction blends this many nearest already-placed mesh neighbors (see
+	// FrameBlender), weighted by inverse local-space distance - smooths out any one bad neighbor
+	// instead of letting it fully determine a vertex's frame.
+	NEIGHBOR_BLEND_COUNT: 4,
+	// Floor for blend-weight denominators so a near-coincident neighbor can't blow its weight up towards infinity.
+	MIN_BLEND_DISTANCE: 1e-6,
 
 	// A marched triangle smaller than this fraction of the wrapped mesh's average triangle area is degenerate.
 	MIN_TRIANGLE_AREA_RATIO: 0.05,
@@ -81,6 +105,12 @@ export const MESH_WRAP_CONSTANTS = {
 	AUTO_RELAX_STRENGTH: 0.5,
 	AUTO_RELAX_ITERATIONS: 3,
 	AUTO_RELAX_BOUNDARY_WEIGHT: 1,
+
+	// Defaults for the user-triggered relax button (see RelaxControl), as opposed to the
+	// AUTO_RELAX_* pass WrapPlacedMeshCommand runs automatically right after a successful wrap.
+	MANUAL_RELAX_STRENGTH: 0.8,
+	MANUAL_RELAX_ITERATIONS: 4,
+	MANUAL_RELAX_BOUNDARY_WEIGHT: 0.5,
 } as const
 
 export const MESH_BAKE_CONSTANTS = {
@@ -92,7 +122,7 @@ export const RAYCAST_UV_SEARCH_CONSTANTS = {
 	// World-space distance the patch's expanded-copy geometry is pushed out along its vertex
 	// normals before raycasting - see GeometryUtils.push. Gives body vertices near the patch's
 	// silhouette (but just outside its raw footprint) something to still hit.
-	NORMAL_MARGIN: 0.02,
+	NORMAL_MARGIN: 0.0,
 
 	// UV-space (and matching world-space) distance the patch's boundary rim is grown outward -
 	// see GeometryUtils.growBoundaryEdges. Extrapolates a ring of triangles/UVs past the patch's
@@ -125,8 +155,6 @@ export const VERTEX_SLIDE_CONSTANTS = {
 } as const
 
 export const PLACED_MESH_CONSTANTS = {
-	// World units per NDC unit of screen-space drag.
-	MOVE_SENSITIVITY: 1.0,
 	// Same drag-to-scale formula the old stamp resize handler used, applied to a scale multiplier instead of UV size.
 	SCALING_FACTOR: 3,
 	MIN_SCALE: 0.1,

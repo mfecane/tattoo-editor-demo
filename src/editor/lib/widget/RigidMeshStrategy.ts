@@ -5,14 +5,6 @@ import type { WidgetStrategy } from '@/editor/lib/widget/WidgetStrategy'
  * projection or constraints, every transform handle is enabled.
  */
 export class RigidMeshStrategy implements WidgetStrategy {
-	canMoveX(): boolean {
-		return true
-	}
-
-	canMoveY(): boolean {
-		return true
-	}
-
 	canMoveCenter(): boolean {
 		return true
 	}
@@ -25,7 +17,7 @@ export class RigidMeshStrategy implements WidgetStrategy {
 		return true
 	}
 
-	canResizeCenter(): boolean {
+	canResizeCorners(): boolean {
 		return true
 	}
 

@@ -1,6 +1,6 @@
-import { MESH_WRAP_CONSTANTS } from '@/editor/constants'
 import { MeshSnapshot } from '@/editor/main/MeshSnapshot'
-import { BufferAttribute, Matrix3, Mesh, Raycaster, Vector3 } from 'three'
+import { SurfaceReprojector } from '@/editor/main/SurfaceReprojector'
+import { BufferAttribute, Matrix3, Mesh, Vector3 } from 'three'
 
 interface RestEdge {
 	neighbor: number
@@ -13,12 +13,12 @@ interface RestEdge {
  * over curved regions of the body. Each iteration nudges every vertex toward the average position
  * implied by its neighbors' current positions plus the ORIGINAL flat edge length (scaled by the
  * mesh's frozen pre-wrap scale - the same delta.x*scale.x / delta.y*scale.y convention
- * PlacedMeshWrapper.marchFrames uses), then reprojects it onto the body surface along its current
- * normal - the same offset-ray idea as PlacedMeshWrapper.reproject - so relaxing can't lift the
- * patch off the curved surface it's glued to. Boundary vertices (touching only one triangle on an
- * edge) get their own relax result blended in by `boundaryWeight` (0 = fully pinned, so the
- * decal's outline can't shrink inward over iterations; 1 = relaxed exactly like interior
- * vertices) instead of an all-or-nothing pin, so the outline/interior tradeoff is tunable.
+ * FrameBlender uses), then reprojects it onto the body surface along its current normal via
+ * SurfaceReprojector, the same offset-ray primitive PlacedMeshWrapper's march uses - so relaxing
+ * can't lift the patch off the curved surface it's glued to. Boundary vertices (touching only one
+ * triangle on an edge) get their own relax result blended in by `boundaryWeight` (0 = fully
+ * pinned, so the decal's outline can't shrink inward over iterations; 1 = relaxed exactly like
+ * interior vertices) instead of an all-or-nothing pin, so the outline/interior tradeoff is tunable.
  */
 export class PlacedMeshRelaxer {
 	public static relax(
@@ -44,7 +44,7 @@ export class PlacedMeshRelaxer {
 		const matrixWorld = mesh.matrixWorld.clone()
 		const inverseMatrix = matrixWorld.clone().invert()
 		const normalMatrix = new Matrix3().getNormalMatrix(matrixWorld)
-		const raycaster = new Raycaster()
+		const reprojector = new SurfaceReprojector()
 
 		let worldPositions: Vector3[] = new Array(vertexCount)
 		for (let i = 0; i < vertexCount; i++) {
@@ -79,13 +79,8 @@ export class PlacedMeshRelaxer {
 				const predicted = worldPositions[i].clone().lerp(target, strength)
 
 				const normal = new Vector3(normalAttr.getX(i), normalAttr.getY(i), normalAttr.getZ(i)).applyMatrix3(normalMatrix).normalize()
-				const origin = predicted.clone().addScaledVector(normal, MESH_WRAP_CONSTANTS.SEARCH_OFFSET)
-				raycaster.set(origin, normal.clone().negate())
-				raycaster.near = 0
-				raycaster.far = MESH_WRAP_CONSTANTS.SEARCH_DISTANCE
-
-				const hits = raycaster.intersectObject(bodyMesh, false)
-				const relaxed = hits.length > 0 ? hits[0].point.clone() : predicted
+				const hit = reprojector.reproject(bodyMesh, predicted, normal)
+				const relaxed = hit ? hit.point : predicted
 
 				nextPositions[i] = boundary.has(i) ? worldPositions[i].clone().lerp(relaxed, boundaryWeight) : relaxed
 			}

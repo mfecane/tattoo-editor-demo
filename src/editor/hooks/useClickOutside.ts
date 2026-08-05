@@ -1,21 +1,29 @@
 import { useEffect } from 'react'
 
-export function useClickOutside(ref: React.RefObject<HTMLElement | null>, callback: () => void) {
-	function handleClickOutside(event: MouseEvent) {
-		if (ref.current && !ref.current.contains(event.target as Node)) {
-			callback()
-		}
-	}
-
+/**
+ * Closes on a pointerdown outside all given refs. Listens in the capture phase because the
+ * canvas calls stopPropagation() on pointerdown, which would otherwise swallow the event before
+ * it bubbles up to a document-level listener.
+ */
+export function useClickOutside(
+	refs: React.RefObject<HTMLElement | null>[],
+	callback: () => void,
+	enabled: boolean = true
+) {
 	useEffect(() => {
-		if (!ref.current) return
-		const backdrop = document.createElement('div')
-		backdrop.className = 'absolute inset-0 bg-black/50 z-50'
-		ref.current.parentNode?.appendChild(backdrop)
-		backdrop.addEventListener('mousedown', handleClickOutside)
-		return () => {
-			backdrop.removeEventListener('mousedown', handleClickOutside)
-			backdrop.remove()
+		if (!enabled) return
+
+		function handlePointerDown(event: PointerEvent) {
+			const target = event.target as Node
+			const isInside = refs.some((ref) => ref.current?.contains(target))
+			if (!isInside) {
+				callback()
+			}
 		}
-	}, [ref, callback])
+
+		document.addEventListener('pointerdown', handlePointerDown, true)
+		return () => {
+			document.removeEventListener('pointerdown', handlePointerDown, true)
+		}
+	}, [refs, callback, enabled])
 }

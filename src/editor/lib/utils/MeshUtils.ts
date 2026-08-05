@@ -1,7 +1,19 @@
-import { Box3, Mesh, Object3D, Vector3 } from 'three'
+import { Box3, Mesh, Object3D, Vector2, Vector3 } from 'three'
 
 export class MeshUtils {
 	private static readonly CUBE_SIZE = 2
+
+	/** Half-width/half-height of a mesh's own local (unscaled) geometry along its x/y axes - e.g. a patch's tangent-plane bounding box before mesh.scale is applied. */
+	computeLocalHalfExtents(mesh: Mesh): Vector2 {
+		if (!mesh.geometry.boundingBox) {
+			mesh.geometry.computeBoundingBox()
+		}
+		const boundingBox = mesh.geometry.boundingBox
+		if (!boundingBox) {
+			throw new Error(`Mesh ${mesh.name} geometry has no bounding box`)
+		}
+		return new Vector2((boundingBox.max.x - boundingBox.min.x) / 2, (boundingBox.max.y - boundingBox.min.y) / 2)
+	}
 
 	fitMesh(mesh: Mesh | Object3D): number {
 		const box = new Box3().setFromObject(mesh)

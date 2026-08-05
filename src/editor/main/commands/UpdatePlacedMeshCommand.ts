@@ -64,7 +64,7 @@ export class UpdatePlacedMeshCommand implements EditorCommand {
 		entry.mesh.quaternion.copy(transform.quaternion)
 		entry.mesh.scale.copy(transform.scale)
 
-		// Scale tool only ever targets a flat (unwrapped) mesh (see ScaleTool.isTargetValid) -
+		// TransformTool only ever targets a flat (unwrapped) mesh (see EditorController.syncActiveToolToTarget) -
 		// entry.kind !== 'drapedPatch' is a defensive no-op guard, not a case this is expected to hit.
 		if (this.scaleChanged && entry.kind !== 'drapedPatch') {
 			const geometry = RegionMeshFactory.createGeometry(entry.sourceShape, entry.sketchAspect, transform.scale.x, transform.scale.y)

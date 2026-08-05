@@ -80,7 +80,7 @@ export class RotatePlacedMeshInteractionHandler implements InteractionHandler {
 		this.initialMousePos.copy(mouse)
 
 		const controller = editor.controller
-		const widget = controller.getRotateTool().getWidget()
+		const widget = controller.getTransformTool().getWidget()
 		const entry = controller.getSelectedPlacedMesh()
 		if (!entry || !widget) {
 			return new InteractionHandlerResult().setPass()
@@ -120,7 +120,7 @@ export class RotatePlacedMeshInteractionHandler implements InteractionHandler {
 		this.mouse = mouse
 
 		const controller = editor.controller
-		const widget = controller.getRotateTool().getWidget()
+		const widget = controller.getTransformTool().getWidget()
 		const entry = controller.project.placedMeshList.getById(this.activePlacedMeshId)
 		if (!widget || !entry) {
 			return new InteractionHandlerResult().setHandled()
@@ -136,9 +136,14 @@ export class RotatePlacedMeshInteractionHandler implements InteractionHandler {
 		const initialAngle = Math.atan2(this.initialMousePos.y - widgetScreen2D.y, this.initialMousePos.x - widgetScreen2D.x)
 		const currentAngle = Math.atan2(this.mouse.y - widgetScreen2D.y, this.mouse.x - widgetScreen2D.x)
 
-		let deltaAngle = initialAngle - currentAngle
+		let deltaAngle = currentAngle - initialAngle
 		while (deltaAngle > Math.PI) deltaAngle -= 2 * Math.PI
 		while (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI
+
+		if (event.modifiers.shift) {
+			const snapIncrement = Math.PI / 12
+			deltaAngle = Math.round(deltaAngle / snapIncrement) * snapIncrement
+		}
 
 		// Rotate around the mesh's own local normal (local +Z), i.e. spin it
 		// in its own plane regardless of the plane's world orientation.

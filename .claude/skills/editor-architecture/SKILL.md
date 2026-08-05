@@ -1,8 +1,6 @@
 ---
-
 name: editor-architecture
 description: Use when building, extending, or reviewing web editor architecture.
-
 ---
 
 # Generic editor architecture
@@ -14,14 +12,14 @@ description: Use when building, extending, or reviewing web editor architecture.
 ## Ownership hierarchy
 
 - Editor
-	- Project (persistent, serialized state)
-	- EditorController (mutation entry point)
-		- Tools
-		- HistoryController
-		- Commands
-		- services/repositories/save-load
-	- ReactBridge (UI-only ephemeral state)
-	- Interaction system (owned by Controller)
+    - Project (persistent, serialized state)
+    - EditorController (mutation entry point)
+        - Tools
+        - HistoryController
+        - Commands
+        - services/repositories/save-load
+    - ReactBridge (UI-only ephemeral state)
+    - Interaction system (owned by Controller)
 
 # Editor
 

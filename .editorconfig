@@ -4,7 +4,10 @@ root = true
 end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
-indent_style = tab
 indent_size = 4
+indent_style = tab
 charset = utf-8
-print_width = 120
+
+[{*.yml,*.yaml}]
+indent_style = space
+indent_size = 4

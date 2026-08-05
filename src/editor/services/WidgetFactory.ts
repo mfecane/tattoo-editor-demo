@@ -1,10 +1,8 @@
 import type { IWidget } from '@/editor/lib/widget/IWidget'
-import { MoveWidget } from '@/editor/lib/widget/MoveWidget'
-import { RotateWidget } from '@/editor/lib/widget/RotateWidget'
-import { ScalingWidget } from '@/editor/lib/widget/ScalingWidget'
+import { TransformWidget } from '@/editor/lib/widget/TransformWidget'
 import type { WidgetStrategy } from '@/editor/lib/widget/WidgetStrategy'
 import type { Editor } from '@/editor/main/Editor'
-import type { Vector3 } from 'three'
+import type { Vector2, Vector3 } from 'three'
 
 /**
  * Factory for creating widget instances.
@@ -12,48 +10,30 @@ import type { Vector3 } from 'three'
  */
 export class WidgetFactory {
 	/**
-	 * Creates a widget of the specified type.
+	 * Creates the combined transform widget (free move + corner/edge scale + rotate).
 	 *
-	 * @param type - The type of widget to create ('scaling', 'rotate', or 'move')
 	 * @param position - The 3D position where the widget should be placed
 	 * @param normal - The surface normal vector
 	 * @param uAxis - The U axis vector (tangent direction)
 	 * @param vAxis - The V axis vector (bitangent direction)
+	 * @param halfExtents - Half-width/half-height (world units) of the patch's tangent-plane bounding box, traced by the box outline
 	 * @param editor - The active Editor (its overlayScene, camera, and cameraUpdateController)
 	 * @param strategy - The strategy to determine which handles should be enabled
 	 * @param rotation - Optional rotation angle in radians (default: 0)
 	 * @returns The created widget instance
 	 */
 	static create(
-		type: 'scaling' | 'rotate' | 'move',
 		position: Vector3,
 		normal: Vector3,
 		uAxis: Vector3,
 		vAxis: Vector3,
+		halfExtents: Vector2,
 		editor: Editor,
 		strategy: WidgetStrategy,
 		rotation: number = 0
 	): IWidget {
-		let widget: IWidget
-		switch (type) {
-			case 'scaling':
-				widget = new ScalingWidget(position, normal, uAxis, vAxis, editor, rotation)
-				if (widget instanceof ScalingWidget) {
-					widget.setEnabledHandles(strategy)
-				}
-				return widget
-			case 'rotate':
-				widget = new RotateWidget(position, normal, uAxis, vAxis, editor, rotation)
-				if (widget instanceof RotateWidget) {
-					widget.setEnabled(strategy)
-				}
-				return widget
-			case 'move':
-				widget = new MoveWidget(position, normal, uAxis, vAxis, editor, rotation)
-				if (widget instanceof MoveWidget) {
-					widget.setEnabledHandles(strategy)
-				}
-				return widget
-		}
+		const widget = new TransformWidget(position, normal, uAxis, vAxis, halfExtents, editor, rotation)
+		widget.setEnabledHandles(strategy)
+		return widget
 	}
 }

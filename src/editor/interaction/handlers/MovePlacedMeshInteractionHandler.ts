@@ -8,14 +8,14 @@ import { PlacedMeshTransform } from '@/editor/main/commands/UpdatePlacedMeshComm
 import { PointerMathService } from '@/editor/services/PointerMathService'
 import { WidgetTransformService } from '@/editor/services/WidgetTransformService'
 import { container } from '@/lib/di/container'
-import { Group, Mesh, Quaternion, Raycaster, Vector2, Vector3 } from 'three'
-import { PLACED_MESH_CONSTANTS } from '@/editor/constants'
+import { Group, Mesh, Quaternion, Raycaster, Vector3 } from 'three'
 
 /**
- * Move gesture for a selected PlacedMesh, mirroring MoveInteractionHandler's
- * screen-space delta math - but there's no UV/lattice to update, so it
- * mutates mesh.position/quaternion directly (live during drag, single
- * UpdatePlacedMeshCommand on release).
+ * Free-move gesture for a selected PlacedMesh: drag anywhere and it re-raycasts
+ * against the body surface every frame, sliding along it - there's no UV/lattice
+ * to update, so it mutates mesh.position/quaternion directly (live during drag,
+ * single UpdatePlacedMeshCommand on release). Axis-constrained move was dropped -
+ * a straight-line drag along U/V never actually followed the surface.
  */
 export class MovePlacedMeshInteractionHandler implements InteractionHandler {
 	public id: string = 'move-placed-mesh'
@@ -25,9 +25,6 @@ export class MovePlacedMeshInteractionHandler implements InteractionHandler {
 	public enabled: boolean = false
 
 	private isActive: boolean = false
-	private initialMousePos: Vector2 = new Vector2()
-	private handleType: 'x' | 'y' | 'center' = 'center'
-	private mouse: Vector2 = new Vector2()
 	private raycaster: Raycaster | null = null
 	private activePlacedMeshId: string | null = null
 	private initialTransform: PlacedMeshTransform | null = null
@@ -53,7 +50,6 @@ export class MovePlacedMeshInteractionHandler implements InteractionHandler {
 			if (!event.context || !event.context.hitResult || event.context.hitResult.type !== 'move-handle') {
 				return new InteractionHandlerResult().setPass()
 			}
-			this.handleType = event.context.hitResult.handleType || 'center'
 			this.raycaster = event.context.raycaster
 			return this.handleMoveStart(event)
 		}
@@ -85,12 +81,10 @@ export class MovePlacedMeshInteractionHandler implements InteractionHandler {
 			raycaster,
 			mouse
 		)
-		this.mouse = mouse
 		this.raycaster = raycaster
-		this.initialMousePos.copy(mouse)
 
 		const controller = editor.controller
-		const widget = controller.getMoveTool().getWidget()
+		const widget = controller.getTransformTool().getWidget()
 		const entry = controller.getSelectedPlacedMesh()
 		if (!entry || !widget) {
 			return new InteractionHandlerResult().setPass()
@@ -108,6 +102,7 @@ export class MovePlacedMeshInteractionHandler implements InteractionHandler {
 
 		this.isActive = true
 		editor.controls.enabled = false
+		widget.setBodyDragging(true)
 
 		return new InteractionHandlerResult().setCapture()
 	}
@@ -128,24 +123,16 @@ export class MovePlacedMeshInteractionHandler implements InteractionHandler {
 			raycaster,
 			mouse
 		)
-		this.mouse = mouse
 		this.raycaster = raycaster
-		const deltaMouse = new Vector2(this.mouse.x - this.initialMousePos.x, this.mouse.y - this.initialMousePos.y)
 
 		const controller = editor.controller
-		const widget = controller.getMoveTool().getWidget()
+		const widget = controller.getTransformTool().getWidget()
 		const entry = controller.project.placedMeshList.getById(this.activePlacedMeshId)
 		if (!widget || !entry) {
 			return new InteractionHandlerResult().setHandled()
 		}
 
-		const widgetGroup = widget.getGroup()
-
-		if (this.handleType === 'center') {
-			this.handleCenterMovement(entry.mesh, widgetGroup)
-		} else {
-			this.handleAxisMovement(entry.mesh, widgetGroup, deltaMouse)
-		}
+		this.handleCenterMovement(entry.mesh, widget.getGroup())
 
 		return new InteractionHandlerResult().setHandled()
 	}
@@ -179,30 +166,6 @@ export class MovePlacedMeshInteractionHandler implements InteractionHandler {
 		this.markChanged(mesh)
 	}
 
-	private handleAxisMovement(mesh: Mesh, widgetGroup: Group, deltaMouse: Vector2): void {
-		if (!this.initialTransform) {
-			return
-		}
-		const { screenU, screenV } = this.calculateScreenSpaceAxes(widgetGroup)
-
-		const uAxis = new Vector3(1, 0, 0).applyQuaternion(this.initialTransform.quaternion)
-		const vAxis = new Vector3(0, 1, 0).applyQuaternion(this.initialTransform.quaternion)
-
-		const newPosition = this.initialTransform.position.clone()
-		if (this.handleType === 'x') {
-			const uComponent = deltaMouse.dot(screenU)
-			newPosition.addScaledVector(uAxis, uComponent * PLACED_MESH_CONSTANTS.MOVE_SENSITIVITY)
-		} else if (this.handleType === 'y') {
-			const vComponent = deltaMouse.dot(screenV)
-			newPosition.addScaledVector(vAxis, vComponent * PLACED_MESH_CONSTANTS.MOVE_SENSITIVITY)
-		}
-
-		mesh.position.copy(newPosition)
-		widgetGroup.position.copy(newPosition)
-
-		this.markChanged(mesh)
-	}
-
 	private markChanged(mesh: Mesh): void {
 		if (!this.activePlacedMeshId || !this.initialTransform) {
 			return
@@ -213,24 +176,6 @@ export class MovePlacedMeshInteractionHandler implements InteractionHandler {
 		}
 		this.editor.reactBridge.refreshSelectionContextMenuPosition()
 		this.editor.controller.scheduleWrapPreview(this.activePlacedMeshId)
-	}
-
-	private calculateScreenSpaceAxes(widgetGroup: Group): { screenU: Vector2; screenV: Vector2 } {
-		widgetGroup.updateMatrixWorld(true)
-		const widgetPosition = new Vector3()
-		widgetGroup.getWorldPosition(widgetPosition)
-
-		const worldU = new Vector3(1, 0, 0).transformDirection(widgetGroup.matrixWorld)
-		const worldV = new Vector3(0, 1, 0).transformDirection(widgetGroup.matrixWorld)
-
-		const uScreen = new Vector3().copy(widgetPosition).add(worldU).project(this.editor.camera)
-		const vScreen = new Vector3().copy(widgetPosition).add(worldV).project(this.editor.camera)
-		const widgetScreen = new Vector3().copy(widgetPosition).project(this.editor.camera)
-
-		const screenU = new Vector2(uScreen.x - widgetScreen.x, uScreen.y - widgetScreen.y).normalize()
-		const screenV = new Vector2(vScreen.x - widgetScreen.x, vScreen.y - widgetScreen.y).normalize()
-
-		return { screenU, screenV }
 	}
 
 	private snapshotTransform(mesh: Mesh): PlacedMeshTransform {
@@ -247,6 +192,7 @@ export class MovePlacedMeshInteractionHandler implements InteractionHandler {
 		}
 
 		this.editor.controls.enabled = true
+		this.editor.controller.getTransformTool().getWidget().setBodyDragging(false)
 		if (this.hasPreviewChanges && this.activePlacedMeshId && this.initialTransform && this.previewTransform) {
 			this.editor.controller.historyController.execute(
 				this.editor.commandFactory.createUpdatePlacedMeshCommand(

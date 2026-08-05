@@ -2,12 +2,12 @@ import { CanvasEventType } from '@/editor/interaction/CanvasEventType'
 import { InteractionEvent } from '@/editor/interaction/InteractionEvent'
 import { InteractionHandler } from '@/editor/interaction/InteractionHandler'
 import { InteractionHandlerResult } from '@/editor/interaction/InteractionHandlerResult'
-import { MESH_WRAP_CONSTANTS } from '@/editor/constants'
 import { Editor } from '@/editor/main/Editor'
 import { HitResultType, PlacedMeshVertexPayload } from '@/editor/main/HitTester'
+import { SurfaceReprojector } from '@/editor/main/SurfaceReprojector'
 import { PointerMathService } from '@/editor/services/PointerMathService'
 import { container } from '@/lib/di/container'
-import { Matrix3, Mesh, Raycaster, Vector3 } from 'three'
+import { Matrix3, Mesh, Vector3 } from 'three'
 
 /**
  * Fine-tune gesture for a wrapped mesh: drags a single vertex, reprojecting
@@ -24,8 +24,8 @@ import { Matrix3, Mesh, Raycaster, Vector3 } from 'three'
  *
  * Every affected vertex is re-reprojected onto the body surface each update
  * (not just linearly translated), so the falloff patch actually tracks the
- * body's curvature instead of drifting off it - the same reproject() idea
- * PlacedMeshWrapper uses during the initial march. That's an extra raycast
+ * body's curvature instead of drifting off it - via SurfaceReprojector, the
+ * same primitive PlacedMeshWrapper's march uses. That's an extra raycast
  * per affected vertex, so the expensive part of the update is throttled to
  * once per animation frame (see rafHandle) rather than once per raw pointer
  * event, which would otherwise fire far more often than the screen redraws.
@@ -45,7 +45,7 @@ export class SlideVertexInteractionHandler implements InteractionHandler {
 	private hasPreviewChanges: boolean = false
 	private pendingLocalPoint: Vector3 | null = null
 	private rafHandle: number | null = null
-	private readonly reprojectRaycaster = new Raycaster()
+	private readonly surfaceReprojector: SurfaceReprojector = new SurfaceReprojector()
 	private readonly pointerMathService: PointerMathService = container.resolve<PointerMathService>('PointerMathService')
 
 	public constructor(private readonly editor: Editor) {}
@@ -148,11 +148,11 @@ export class SlideVertexInteractionHandler implements InteractionHandler {
 	}
 
 	/**
-	 * Reprojects every vertex in the falloff set onto the body surface, using the same
-	 * offset-ray-along-the-normal idea as PlacedMeshWrapper.reproject: predict a new position
-	 * from the delta at the grabbed vertex, then snap it onto the real surface along the
-	 * vertex's own (pre-update) normal. A vertex whose ray doesn't hit anything just keeps its
-	 * predicted (unprojected) position, mirroring PlacedMeshWrapper's coverage-stall fallback.
+	 * Reprojects every vertex in the falloff set onto the body surface, via SurfaceReprojector:
+	 * predict a new position from the delta at the grabbed vertex, then snap it onto the real
+	 * surface along the vertex's own (pre-update) normal. A vertex whose ray doesn't hit anything
+	 * just keeps its predicted (unprojected) position, mirroring PlacedMeshWrapper's coverage-stall
+	 * fallback.
 	 */
 	private applyPendingMove(): void {
 		const localPoint = this.pendingLocalPoint
@@ -180,20 +180,14 @@ export class SlideVertexInteractionHandler implements InteractionHandler {
 		const predicted = new Vector3()
 		const worldPredicted = new Vector3()
 		const worldNormal = new Vector3()
-		const rayOrigin = new Vector3()
 
 		for (const [index, weight] of weights) {
 			predicted.set(before[index * 3] + deltaX * weight, before[index * 3 + 1] + deltaY * weight, before[index * 3 + 2] + deltaZ * weight)
 			worldPredicted.copy(predicted).applyMatrix4(entry.mesh.matrixWorld)
 			worldNormal.set(normalAttr.getX(index), normalAttr.getY(index), normalAttr.getZ(index)).applyMatrix3(normalMatrix).normalize()
 
-			rayOrigin.copy(worldPredicted).addScaledVector(worldNormal, MESH_WRAP_CONSTANTS.SEARCH_OFFSET)
-			this.reprojectRaycaster.set(rayOrigin, worldNormal.clone().negate())
-			this.reprojectRaycaster.near = 0
-			this.reprojectRaycaster.far = MESH_WRAP_CONSTANTS.SEARCH_DISTANCE
-
-			const hits = this.reprojectRaycaster.intersectObject(this.editor.previewMesh.mesh, false)
-			const newWorldPoint = hits.length > 0 ? hits[0].point : worldPredicted
+			const hit = this.surfaceReprojector.reproject(this.editor.previewMesh.mesh, worldPredicted, worldNormal)
+			const newWorldPoint = hit ? hit.point : worldPredicted
 			const newLocalPoint = entry.mesh.worldToLocal(newWorldPoint.clone())
 			positionAttr.setXYZ(index, newLocalPoint.x, newLocalPoint.y, newLocalPoint.z)
 		}

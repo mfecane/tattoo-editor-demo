@@ -10,11 +10,9 @@ import { PlacedMeshRelaxer } from '@/editor/main/PlacedMeshRelaxer'
 import { PlacedMeshWrapper } from '@/editor/main/PlacedMeshWrapper'
 import { RegionMeshFactory } from '@/editor/main/RegionMeshFactory'
 import { Project } from '@/editor/main/Project'
-import { MoveTool } from '@/editor/main/tools/MoveTool'
 import { PlacementTool } from '@/editor/main/tools/PlacementTool'
-import { RotateTool } from '@/editor/main/tools/RotateTool'
-import { ScaleTool } from '@/editor/main/tools/ScaleTool'
 import { SelectTool } from '@/editor/main/tools/SelectTool'
+import { TransformTool } from '@/editor/main/tools/TransformTool'
 import { EditorToolId, IEditorTool } from '@/editor/main/tools/EditorTool'
 import { RegionShape } from '@/editor/polygon/RegionShape'
 import { BufferGeometry, Intersection, Mesh, Texture, TextureLoader, Vector2 } from 'three'
@@ -40,9 +38,7 @@ export class EditorController {
 	private activeTool: IEditorTool | null = null
 
 	private readonly selectTool: SelectTool
-	private readonly moveTool: MoveTool
-	private readonly rotateTool: RotateTool
-	private readonly scaleTool: ScaleTool
+	private readonly transformTool: TransformTool
 	private readonly placementTool: PlacementTool
 
 	private pendingPlacement: { mesh: Mesh; sourceShape: RegionShape; texture: Texture; sketchAspect: number } | null = null
@@ -66,9 +62,7 @@ export class EditorController {
 		this.project = new Project()
 
 		this.selectTool = new SelectTool(this.editor)
-		this.moveTool = new MoveTool(this.editor)
-		this.rotateTool = new RotateTool(this.editor)
-		this.scaleTool = new ScaleTool(this.editor)
+		this.transformTool = new TransformTool(this.editor)
 		this.placementTool = new PlacementTool(this.editor)
 	}
 
@@ -95,16 +89,8 @@ export class EditorController {
 		return this.selectTool
 	}
 
-	public getMoveTool(): MoveTool {
-		return this.moveTool
-	}
-
-	public getScaleTool(): ScaleTool {
-		return this.scaleTool
-	}
-
-	public getRotateTool(): RotateTool {
-		return this.rotateTool
+	public getTransformTool(): TransformTool {
+		return this.transformTool
 	}
 
 	public getPlacementTool(): PlacementTool {
@@ -146,24 +132,31 @@ export class EditorController {
 	}
 
 	/**
-	 * The single boundary for widget lifetime: re-checks whether the active tool's
-	 * target (the selected placed mesh) is still valid, given everything that just
-	 * changed. If not, forces the tool back to Select - which tears down the stale
-	 * widget via that tool's own exitTool(), rather than requiring every mutation
-	 * site to remember to hide/destroy it itself. Called from here and from every
-	 * HistoryController execute/undo/redo, since those are the only two places
-	 * domain state (selection, wrapped-ness, mesh existence) can change.
+	 * The single boundary for widget lifetime: derives which tool *should* be
+	 * active from current selection state and switches into it if it isn't
+	 * already. A selected regionMesh always gets the combined TransformTool -
+	 * its handles show immediately on selection, there's no separate mode
+	 * button - anything else (nothing selected, or a wrapped drapedPatch,
+	 * which has no transform handles) falls back to Select, tearing down any
+	 * stale widget via that tool's own exitTool(). PlacementTool manages its
+	 * own lifecycle explicitly (see beginMeshPlacement/placePendingMeshAt)
+	 * and is left alone here. Called from setSelectedPlacedMeshId and from
+	 * every HistoryController execute/undo/redo, since those are the only
+	 * places domain state (selection, wrapped-ness, mesh existence) can change.
 	 */
 	public syncActiveToolToTarget(): void {
-		const tool = this.activeTool
-		if (!tool) {
+		if (this.activeTool === this.placementTool) {
 			return
 		}
-		if (tool.isTargetValid && !tool.isTargetValid()) {
-			this.setActiveTool(this.selectTool)
+
+		const selected = this.getSelectedPlacedMesh()
+		const desiredTool: IEditorTool = selected && selected.kind === 'regionMesh' ? this.transformTool : this.selectTool
+
+		if (this.activeTool !== desiredTool) {
+			this.setActiveTool(desiredTool)
 			return
 		}
-		if (tool === this.selectTool) {
+		if (this.activeTool === this.selectTool) {
 			this.selectTool.reset()
 		}
 	}
@@ -252,7 +245,11 @@ export class EditorController {
 		this.setActiveTool(this.selectTool)
 
 		// Select it immediately so its transform handles/context menu show up right away,
-		// instead of leaving the user to hunt for the blue select dot after placing.
+		// instead of leaving the user to hunt for the blue select dot after placing. Also force
+		// widgets back on - the toggle only ever hides selection handles (it's disabled whenever
+		// something is selected), so a prior toggle-off would otherwise leave the new piece's
+		// transform handles invisible too.
+		this.editor.reactBridge.setWidgetsVisible(true)
 		const placedMeshId = command.getPlacedMeshId()
 		this.editor.reactBridge.setSelectedPlacedMeshId(placedMeshId)
 		const screenPos = worldToScreen(mesh.position, this.editor.camera, this.editor.getDomElement())
