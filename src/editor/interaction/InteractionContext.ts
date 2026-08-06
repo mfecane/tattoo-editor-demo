@@ -1,7 +1,7 @@
 import { HitResult } from '@/editor/main/HitTester'
 import { Editor } from '@/editor/main/Editor'
 import { PointerMathService } from '@/editor/services/PointerMathService'
-import { container } from '@/lib/di/container'
+import { Container } from '@/lib/di/container'
 import { Intersection, Object3D, PerspectiveCamera, Raycaster, Vector2 } from 'three'
 
 export class InteractionContext {
@@ -26,9 +26,12 @@ export class InteractionContext {
 	public mouse: Vector2 | null = null
 
 	private previousHitObject: Object3D | null = null
-	private readonly pointerMathService: PointerMathService = container.resolve<PointerMathService>('PointerMathService')
+	private readonly pointerMathService: PointerMathService = this.container.resolve<PointerMathService>('PointerMathService')
 
-	public constructor(private readonly editor: Editor) {}
+	public constructor(
+		private readonly editor: Editor,
+		private readonly container: Container
+	) {}
 
 	public initialize(raycaster: Raycaster, camera: PerspectiveCamera, domElement: HTMLElement, mouse: Vector2): void {
 		this.raycaster = raycaster

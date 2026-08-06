@@ -1,5 +1,4 @@
 'use client'
-import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Slider } from '@/components/ui/slider'
@@ -41,17 +40,16 @@ export function AppliedPieceSettings({ piece }: AppliedPieceSettingsProps) {
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
-				<Button
+				<button
 					ref={triggerRef}
 					id={`applied-piece-settings-trigger-${piece.id}`}
 					onPointerDown={stopPropagation}
 					onClick={stopPropagation}
-					variant="secondary"
-					className="h-full"
+					className="block h-full bg-neutral-800/30 hover:text-neutral-50 px-1 transition-colors hover:bg-neutral-600/30"
 					title="Piece settings"
 				>
-					<ChevronLeft className="w-3.5 h-3.5" />
-				</Button>
+					<ChevronLeft className="w-4 h-4" />
+				</button>
 			</PopoverTrigger>
 			<PopoverContent
 				ref={contentRef}

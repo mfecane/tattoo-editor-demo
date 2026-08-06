@@ -118,7 +118,5 @@ export class Container {
 	}
 }
 
-export const container = new Container()
-
 // Re-export Lazy for convenience
 export { Lazy } from './Lazy'

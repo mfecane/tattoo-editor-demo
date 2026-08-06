@@ -1,4 +1,7 @@
 import { PreviewMesh } from '@/editor/main/PreviewMesh'
+import { PreviewMeshInstance } from '@/editor/main/PreviewMeshInstance'
+import { PreviewMeshTextureSet } from '@/editor/main/PreviewMeshTextureSet'
+import { TextureMapType } from '@/editor/main/TextureMapType'
 import {
 	Box3,
 	Group,
@@ -23,7 +26,7 @@ import { Optional } from 'typescript-optional'
 export class PreviewMeshFactory {
 	constructor() {}
 
-	public async loadAsset(url: string): Promise<PreviewMesh> {
+	public async loadAsset(instance: PreviewMeshInstance): Promise<PreviewMesh> {
 		const loader = new GLTFLoader()
 
 		const dracoLoader = new DRACOLoader()
@@ -31,7 +34,7 @@ export class PreviewMeshFactory {
 		loader.setDRACOLoader(dracoLoader)
 
 		try {
-			const gltf = await loader.loadAsync(url)
+			const gltf = await loader.loadAsync(instance.meshFile)
 			const assetGroup = Optional.ofNullable(gltf.scene.children[0] as Group).orElseThrow(
 				() => new Error('Asset group not found')
 			)
@@ -75,7 +78,7 @@ export class PreviewMeshFactory {
 			mesh.scale.set(1, 1, 1)
 			mesh.updateMatrixWorld(true)
 
-			await this.setupAssetMaterials(mesh)
+			await this.setupAssetMaterials(mesh, instance.textures)
 
 			mesh.name = 'ArmAsset'
 			mesh.castShadow = true
@@ -87,21 +90,21 @@ export class PreviewMeshFactory {
 		}
 	}
 
-	private async setupAssetMaterials(asset: Mesh): Promise<void> {
+	private async setupAssetMaterials(asset: Mesh, textures: PreviewMeshTextureSet): Promise<void> {
 		const textureLoader = new TextureLoader()
 
 		const [color1001, orm1001, normal1001, alpha1001] = await Promise.all([
-			textureLoader.loadAsync('assets/asset/color_1001.jpg'),
-			textureLoader.loadAsync('assets/asset/orm_1001.jpg'),
-			textureLoader.loadAsync('assets/asset/normal_1001.jpg'),
-			textureLoader.loadAsync('assets/asset/alpha_1001.jpg'),
+			textureLoader.loadAsync(textures.resolve(1001, TextureMapType.Color)),
+			textureLoader.loadAsync(textures.resolve(1001, TextureMapType.Orm)),
+			textureLoader.loadAsync(textures.resolve(1001, TextureMapType.Normal)),
+			textureLoader.loadAsync(textures.resolve(1001, TextureMapType.Alpha)),
 		])
 
 		const [color1002, orm1002, normal1002, alpha1002] = await Promise.all([
-			textureLoader.loadAsync('assets/asset/color_1002.jpg'),
-			textureLoader.loadAsync('assets/asset/orm_1002.jpg'),
-			textureLoader.loadAsync('assets/asset/normal_1002.jpg'),
-			textureLoader.loadAsync('assets/asset/alpha_1002.jpg'),
+			textureLoader.loadAsync(textures.resolve(1002, TextureMapType.Color)),
+			textureLoader.loadAsync(textures.resolve(1002, TextureMapType.Orm)),
+			textureLoader.loadAsync(textures.resolve(1002, TextureMapType.Normal)),
+			textureLoader.loadAsync(textures.resolve(1002, TextureMapType.Alpha)),
 		])
 
 		color1001.wrapS = RepeatWrapping

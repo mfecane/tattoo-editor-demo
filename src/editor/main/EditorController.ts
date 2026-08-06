@@ -14,6 +14,7 @@ import { SelectTool } from '@/editor/main/tools/SelectTool'
 import { TransformTool } from '@/editor/main/tools/TransformTool'
 import { EditorToolId, IEditorTool } from '@/editor/main/tools/EditorTool'
 import { RegionShape } from '@/editor/polygon/RegionShape'
+import { Container } from '@/lib/di/container'
 import { BufferGeometry, Intersection, Mesh, Texture, TextureLoader } from 'three'
 
 export interface SketchEditorTarget {
@@ -57,11 +58,14 @@ export class EditorController {
 
 	public readonly sketchRegionStore: SketchRegionStore = new SketchRegionStore()
 
-	public constructor(public readonly editor: Editor) {
+	public constructor(
+		public readonly editor: Editor,
+		private readonly container: Container
+	) {
 		this.project = new Project()
 
 		this.selectTool = new SelectTool(this.editor)
-		this.transformTool = new TransformTool(this.editor)
+		this.transformTool = new TransformTool(this.editor, this.container)
 		this.placementTool = new PlacementTool(this.editor)
 	}
 

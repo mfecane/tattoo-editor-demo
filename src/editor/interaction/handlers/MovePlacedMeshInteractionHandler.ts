@@ -7,7 +7,7 @@ import { Editor } from '@/editor/main/Editor'
 import { PlacedMeshTransform } from '@/editor/main/commands/UpdatePlacedMeshCommand'
 import { PointerMathService } from '@/editor/services/PointerMathService'
 import { WidgetTransformService } from '@/editor/services/WidgetTransformService'
-import { container } from '@/lib/di/container'
+import { Container } from '@/lib/di/container'
 import { Group, Mesh, Quaternion, Raycaster, Vector3 } from 'three'
 
 /**
@@ -32,11 +32,14 @@ export class MovePlacedMeshInteractionHandler implements InteractionHandler {
 	private hasPreviewChanges: boolean = false
 	/** The mesh's own twist beyond raw surface alignment, captured at drag start so dragging across curved geometry doesn't discard it - see SurfaceTangentBasis. */
 	private twistQuaternion: Quaternion = new Quaternion()
-	private readonly pointerMathService: PointerMathService = container.resolve<PointerMathService>('PointerMathService')
+	private readonly pointerMathService: PointerMathService = this.container.resolve<PointerMathService>('PointerMathService')
 	private readonly widgetTransformService: WidgetTransformService =
-		container.resolve<WidgetTransformService>('WidgetTransformService')
+		this.container.resolve<WidgetTransformService>('WidgetTransformService')
 
-	public constructor(private readonly editor: Editor) {}
+	public constructor(
+		private readonly editor: Editor,
+		private readonly container: Container
+	) {}
 
 	public isEnabled(event: InteractionEvent): boolean {
 		if (!this.enabled || !event.context?.hitResult) {

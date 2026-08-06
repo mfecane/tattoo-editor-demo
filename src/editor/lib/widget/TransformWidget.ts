@@ -10,7 +10,7 @@ import { computeScreenSpaceScale } from '@/editor/lib/widget/screenSpaceScale'
 import type { Editor } from '@/editor/main/Editor'
 import { HitResult, HitResultType } from '@/editor/main/HitTester'
 import { WidgetTransformService } from '@/editor/services/WidgetTransformService'
-import { container } from '@/lib/di/container'
+import { Container } from '@/lib/di/container'
 import {
 	BufferGeometry,
 	CircleGeometry,
@@ -96,7 +96,7 @@ export class TransformWidget extends BaseWidget {
 	private readonly billboardAnchors: Group[]
 
 	private readonly widgetTransformService: WidgetTransformService =
-		container.resolve<WidgetTransformService>('WidgetTransformService')
+		this.container.resolve<WidgetTransformService>('WidgetTransformService')
 
 	public constructor(
 		position: Vector3,
@@ -105,6 +105,7 @@ export class TransformWidget extends BaseWidget {
 		vAxis: Vector3,
 		halfExtents: Vector2,
 		editor: Editor,
+		private readonly container: Container,
 		rotation: number = 0
 	) {
 		super()

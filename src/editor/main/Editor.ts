@@ -12,6 +12,7 @@ import { ReactBridge } from '@/editor/main/ReactBridge'
 import { BodyTextureComposer } from '@/editor/services/BodyTextureComposer'
 import { PatchBaker } from '@/editor/services/PatchBaker'
 import { ProjectRecord } from '@/editor/types/projectTypes'
+import { Container } from '@/lib/di/container'
 import { Euler, Group, Mesh, PerspectiveCamera, Scene, Texture, WebGLRenderer } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
@@ -32,7 +33,7 @@ export class Editor {
 	public resizeObserver: ResizeObserver
 	public handleResize = () => this.resize()
 
-	public readonly controller: EditorController = new EditorController(this)
+	public readonly controller: EditorController = new EditorController(this, this.container)
 
 	public readonly commandFactory: CommandFactory = new CommandFactory(this.controller)
 
@@ -61,12 +62,13 @@ export class Editor {
 
 	public constructor(
 		public readonly previewMesh: PreviewMesh,
-		public readonly container: HTMLElement,
+		public readonly containerElement: HTMLElement,
 		private readonly width: number,
 		private readonly height: number,
 		private readonly lightingSetup: ILightingSetup,
 		private readonly environmentMap: Texture,
-		renderer: WebGLRenderer
+		renderer: WebGLRenderer,
+		private readonly container: Container
 	) {
 		this.previewScene = new Scene()
 
@@ -88,7 +90,7 @@ export class Editor {
 		this.camera.lookAt(0, 0, 0)
 
 		this.renderer = renderer
-		this.container.appendChild(this.renderer.domElement)
+		this.containerElement.appendChild(this.renderer.domElement)
 
 		this.controls = new OrbitControls(this.camera, this.renderer.domElement)
 		this.controls.enableDamping = true
@@ -131,12 +133,12 @@ export class Editor {
 		this.composer.addPass(vignettePass)
 
 		this.resizeObserver = new ResizeObserver(this.handleResize)
-		this.resizeObserver.observe(this.container)
+		this.resizeObserver.observe(this.containerElement)
 
 		window.addEventListener('resize', this.handleResize)
 
 		this.hitTester = new HitTester(this)
-		this.canvasEventHandler = new CanvasEventHandler(this)
+		this.canvasEventHandler = new CanvasEventHandler(this, this.container)
 		this.controller.setActiveTool(this.controller.getSelectTool())
 	}
 
@@ -153,8 +155,8 @@ export class Editor {
 			cancelAnimationFrame(this.animateId)
 		}
 
-		if (this.renderer.domElement.parentNode === this.container) {
-			this.container.removeChild(this.renderer.domElement)
+		if (this.renderer.domElement.parentNode === this.containerElement) {
+			this.containerElement.removeChild(this.renderer.domElement)
 		}
 
 		if (this.previewScene.environment) {
@@ -203,8 +205,8 @@ export class Editor {
 	}
 
 	public resize() {
-		const width = this.container.clientWidth
-		const height = this.container.clientHeight
+		const width = this.containerElement.clientWidth
+		const height = this.containerElement.clientHeight
 		this.camera.aspect = width / height
 		this.camera.updateProjectionMatrix()
 		this.renderer.setSize(width, height)

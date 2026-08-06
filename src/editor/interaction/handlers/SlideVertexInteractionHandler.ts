@@ -6,7 +6,7 @@ import { Editor } from '@/editor/main/Editor'
 import { HitResultType, PlacedMeshVertexPayload } from '@/editor/main/HitTester'
 import { SurfaceReprojector } from '@/editor/main/SurfaceReprojector'
 import { PointerMathService } from '@/editor/services/PointerMathService'
-import { container } from '@/lib/di/container'
+import { Container } from '@/lib/di/container'
 import { Matrix3, Mesh, Vector3 } from 'three'
 
 /**
@@ -46,9 +46,12 @@ export class SlideVertexInteractionHandler implements InteractionHandler {
 	private pendingLocalPoint: Vector3 | null = null
 	private rafHandle: number | null = null
 	private readonly surfaceReprojector: SurfaceReprojector = new SurfaceReprojector()
-	private readonly pointerMathService: PointerMathService = container.resolve<PointerMathService>('PointerMathService')
+	private readonly pointerMathService: PointerMathService = this.container.resolve<PointerMathService>('PointerMathService')
 
-	public constructor(private readonly editor: Editor) {}
+	public constructor(
+		private readonly editor: Editor,
+		private readonly container: Container
+	) {}
 
 	public isEnabled(event: InteractionEvent): boolean {
 		if (!this.enabled || !event.context?.hitResult) {

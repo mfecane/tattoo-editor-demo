@@ -1,13 +1,13 @@
+import ConfirmModal from '@/components/modals/ConfirmModal'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import ConfirmModal from '@/components/modals/ConfirmModal'
 import { FalloffRadiusControl } from '@/editor/components/FalloffRadiusControl'
 import { RelaxControl } from '@/editor/components/RelaxControl'
 import { useReactBridgeContext } from '@/editor/hooks/useReactBridge'
-import { Trash2, Unlink, Waves } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
-export function SelectionContextMenu() {
+export function StampToolBar() {
 	const reactBridge = useReactBridgeContext()
 	const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
@@ -46,12 +46,7 @@ export function SelectionContextMenu() {
 				{isWrapped && <RelaxControl />}
 				<Tooltip>
 					<TooltipTrigger asChild>
-						<Button
-							variant="ghost"
-							size="icon"
-							onClick={() => setDeleteConfirmOpen(true)}
-							className="ml-auto p-2 hover:bg-accent rounded transition-colors text-destructive"
-						>
+						<Button variant="ghost" size="icon" onClick={() => setDeleteConfirmOpen(true)}>
 							<Trash2 className="w-4 h-4" />
 						</Button>
 					</TooltipTrigger>
@@ -73,8 +68,8 @@ export function SelectionContextMenu() {
 
 				{isWrapped ? (
 					<Button variant="ghost" onClick={() => reactBridge.handleUnwrap()}>
-						<Unlink className="w-4 h-4" />
-						Unwrap
+						<ArrowUpFromLine className="w-4 h-4" />
+						Pick up
 					</Button>
 				) : (
 					<Button
@@ -82,7 +77,8 @@ export function SelectionContextMenu() {
 						onClick={() => reactBridge.handleWrap()}
 						disabled={state.selectedPlacedMeshWrapPreviewValid !== true}
 					>
-						<Waves className="w-4 h-4" />
+						<ArrowDownToLine className="w-4 h-4" />
+
 						{state.selectedPlacedMeshWrapPreviewValid === true
 							? 'Apply'
 							: state.selectedPlacedMeshWrapPreviewValid === false

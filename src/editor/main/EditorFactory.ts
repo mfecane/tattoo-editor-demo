@@ -2,32 +2,41 @@ import { Editor } from '@/editor/main/Editor'
 import type { ILightingSetup } from '@/editor/main/environment/ILightingSetup'
 import { LightingSetup2 } from '@/editor/main/environment/LightingSetup2'
 import { PreviewMeshFactory } from '@/editor/main/PreviewMeshFactory'
+import { PreviewMeshRepository } from '@/editor/main/PreviewMeshRepository'
+import { ARM_PREVIEW_MESH_ID } from '@/editor/main/registerPreviewMeshInstances'
+import { Container } from '@/lib/di/container'
 import { PCFSoftShadowMap, PMREMGenerator, ReinhardToneMapping, SRGBColorSpace, Texture, WebGLRenderer } from 'three'
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 
 export class EditorFactory {
-	private static readonly PREVIEW_MESH_URL = 'assets/asset/arm_render.glb'
 	private static readonly ENVIRONMENT_MAP_URL = 'assets/environment/blocky_photo_studio_512.ktx2'
 
 	private readonly previewMeshFactory: PreviewMeshFactory = new PreviewMeshFactory()
 	private readonly lightingSetup2: ILightingSetup = new LightingSetup2()
+	private readonly previewMeshRepository: PreviewMeshRepository =
+		this.container.resolve<PreviewMeshRepository>('PreviewMeshRepository')
 
-	public async createEditor(container: HTMLElement): Promise<Editor> {
-		const width = container.clientWidth
-		const height = container.clientHeight
+	public constructor(private readonly container: Container) {}
+
+	public async createEditor(containerElement: HTMLElement): Promise<Editor> {
+		const width = containerElement.clientWidth
+		const height = containerElement.clientHeight
 
 		const renderer = this.createRenderer(width, height)
 
 		const environmentMap = await this.loadPMREMEnvironment(renderer)
 
+		const previewMeshInstance = this.previewMeshRepository.get(ARM_PREVIEW_MESH_ID)
+
 		return new Editor(
-			await this.previewMeshFactory.loadAsset(EditorFactory.PREVIEW_MESH_URL),
-			container,
+			await this.previewMeshFactory.loadAsset(previewMeshInstance),
+			containerElement,
 			width,
 			height,
 			this.lightingSetup2,
 			environmentMap,
-			renderer
+			renderer,
+			this.container
 		)
 	}
 

@@ -4,7 +4,7 @@ import { TransformWidget } from '@/editor/lib/widget/TransformWidget'
 import { Editor } from '@/editor/main/Editor'
 import { EditorToolId, IEditorTool } from '@/editor/main/tools/EditorTool'
 import { WidgetFactory } from '@/editor/services/WidgetFactory'
-import { container } from '@/lib/di/container'
+import { Container } from '@/lib/di/container'
 import { Vector2, Vector3 } from 'three'
 import { Optional } from 'typescript-optional'
 
@@ -16,9 +16,12 @@ export class TransformTool implements IEditorTool {
 
 	private widget: TransformWidget | null = null
 
-	private readonly meshUtils: MeshUtils = container.resolve<MeshUtils>('MeshUtils')
+	private readonly meshUtils: MeshUtils = this.container.resolve<MeshUtils>('MeshUtils')
 
-	public constructor(private readonly editor: Editor) {}
+	public constructor(
+		private readonly editor: Editor,
+		private readonly container: Container
+	) {}
 
 	public enterTool(): void {
 		const selectedPlacedMesh = this.editor.controller.getSelectedPlacedMesh()
@@ -38,6 +41,7 @@ export class TransformTool implements IEditorTool {
 			vAxis,
 			halfExtents,
 			this.editor,
+			this.container,
 			new RigidMeshStrategy(),
 			0
 		) as TransformWidget

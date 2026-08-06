@@ -1,8 +1,10 @@
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Slider } from '@/components/ui/slider'
+import { Toggle } from '@/components/ui/toggle'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useReactBridgeContext } from '@/editor/hooks/useReactBridge'
-import { SlidersHorizontal } from 'lucide-react'
+import { Radius } from 'lucide-react'
 
 /** Toolbar popover for the slide-vertex falloff radius - see SlideVertexInteractionHandler.computeFalloffWeights. */
 export function FalloffRadiusControl() {
@@ -20,11 +22,20 @@ export function FalloffRadiusControl() {
 
 	return (
 		<Popover>
-			<PopoverTrigger asChild>
-				<button className="p-2 rounded transition-colors hover:bg-accent" title="Vertex slide falloff radius">
-					<SlidersHorizontal className="w-4 h-4" />
-				</button>
-			</PopoverTrigger>
+			<TooltipProvider>
+				<Tooltip>
+					<PopoverTrigger asChild>
+						<TooltipTrigger asChild>
+							<Toggle variant="ghost" size="icon">
+								<Radius className="w-4 h-4" />
+							</Toggle>
+						</TooltipTrigger>
+					</PopoverTrigger>
+					<TooltipContent>
+						<p>Modify move vertex influence</p>
+					</TooltipContent>
+				</Tooltip>
+			</TooltipProvider>
 			<PopoverContent className="w-72 p-4" align="start">
 				<Label htmlFor="falloff-radius" className="text-sm">
 					Vertex Slide Falloff Radius

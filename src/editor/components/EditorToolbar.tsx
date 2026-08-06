@@ -1,11 +1,12 @@
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Toggle } from '@/components/ui/toggle'
-import { SelectionContextMenu } from '@/editor/components/SelectionContextMenu'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { StampToolBar } from '@/editor/components/StampToolBar'
 import { ViewSettings } from '@/editor/components/ViewSettings'
 import { useReactBridgeContext } from '@/editor/hooks/useReactBridge'
 import { useEditorStore } from '@/editor/store/editorStore'
-import { ArrowLeft, Camera, LayoutGrid, Redo2, Save, Undo2 } from 'lucide-react'
+import { ArrowLeft, Circle, CircleOff, Redo2, Save, Undo2 } from 'lucide-react'
 
 interface Props {}
 
@@ -35,59 +36,95 @@ const EditorToolbar: React.FC<Props> = ({}) => {
 
 	return (
 		<div className="absolute w-full right-0 left-0 top-0 flex justify-between items-start p-4">
-			<div className="flex gap-2 ">
-				<div className="bg-neutral-900 rounded p-2">
-					<Button type="button" variant="ghost" size="icon" disabled>
-						<ArrowLeft />
-					</Button>
+			<TooltipProvider>
+				<div className="flex gap-2 ">
+					<div className="bg-neutral-900 rounded p-2">
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button type="button" variant="ghost" size="icon" disabled>
+										<ArrowLeft />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>
+									<p>Back to editing design</p>
+								</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+					</div>
+					<StampToolBar />
 				</div>
-				<SelectionContextMenu />
-			</div>
 
-			<div className="bg-neutral-900 rounded-md overflow-hidden flex gap-2 p-2 items-center">
-				<Button
-					type="button"
-					onClick={handleUndo}
-					disabled={!historyState.canUndo}
-					size="icon"
-					variant="ghost"
-					title="Undo"
-				>
-					<Undo2 className="h-4 w-4" />
-				</Button>
-				<Button
-					type="button"
-					onClick={handleRedo}
-					disabled={!historyState.canRedo}
-					size="icon"
-					variant="ghost"
-					title="Redo"
-				>
-					<Redo2 className="h-4 w-4" />
-				</Button>
+				<div className="bg-neutral-900 rounded-md overflow-hidden flex gap-2 p-2 items-center">
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								type="button"
+								onClick={handleUndo}
+								disabled={!historyState.canUndo}
+								size="icon"
+								variant="ghost"
+								title="Undo"
+							>
+								<Undo2 className="h-4 w-4" />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>
+							<p>Undo last action</p>
+						</TooltipContent>
+					</Tooltip>
 
-				<Button size="icon" type="button" variant="ghost" disabled>
-					<Save className="h-4 w-4" />
-				</Button>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								type="button"
+								onClick={handleRedo}
+								disabled={!historyState.canRedo}
+								size="icon"
+								variant="ghost"
+								title="Redo"
+							>
+								<Redo2 className="h-4 w-4" />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>
+							<p>Redo last undone action</p>
+						</TooltipContent>
+					</Tooltip>
 
-				<ViewSettings />
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button size="icon" type="button" variant="ghost" disabled>
+								<Save className="h-4 w-4" />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>
+							<p>Save project</p>
+						</TooltipContent>
+					</Tooltip>
 
-				<Button size="icon" type="button" variant="ghost" disabled>
-					<Camera className="h-4 w-4" />
-				</Button>
+					<ViewSettings />
 
-				<Separator orientation="vertical" />
+					<Separator orientation="vertical" />
 
-				<Toggle
-					pressed={widgetsVisible}
-					onPressedChange={handleWidgetsVisibleChange}
-					disabled={hasSelection}
-					aria-label="Display widgets"
-					title="Display Widgets"
-				>
-					<LayoutGrid className="h-4 w-4" />
-				</Toggle>
-			</div>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Toggle
+								pressed={widgetsVisible}
+								onPressedChange={handleWidgetsVisibleChange}
+								disabled={hasSelection}
+								aria-label="Display widgets"
+								title="Display Widgets"
+							>
+								{widgetsVisible ? <Circle className="h-4 w-4" /> : <CircleOff className="h-4 w-4" />}
+							</Toggle>
+						</TooltipTrigger>
+						<TooltipContent>
+							<p>Show/hide placed piece selection handles</p>
+						</TooltipContent>
+					</Tooltip>
+				</div>
+			</TooltipProvider>
 		</div>
 	)
 }

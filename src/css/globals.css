@@ -50,7 +50,7 @@
 	--color-accent: var(--accent);
 	--color-accent-foreground: var(--accent-foreground);
 
-	--color-muted: var(--muted);
+	--color-muted: var(--color-neutral-950);
 	--color-muted-foreground: var(--muted-foreground);
 
 	--color-success: #10b981;
@@ -118,7 +118,7 @@
 	--input: #1f2430;
 
 	/* Make focus ring actually visible */
-	--ring: #98816f;
+	--ring: var(--color-beige-500);
 
 	--chart-1: oklch(0.488 0.243 264.376);
 	--chart-2: oklch(0.696 0.17 162.48);
@@ -154,6 +154,7 @@
 @layer base {
 	* {
 		@apply border-border;
+		@apply ring-ring;
 	}
 }
 

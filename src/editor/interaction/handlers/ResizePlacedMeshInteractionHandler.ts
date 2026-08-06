@@ -8,7 +8,7 @@ import { CORNER_HANDLE_SIGNS, EDGE_HANDLE_SIGNS, TransformHandleId, isEdgeHandle
 import { Editor } from '@/editor/main/Editor'
 import { PlacedMeshTransform } from '@/editor/main/commands/UpdatePlacedMeshCommand'
 import { PointerMathService } from '@/editor/services/PointerMathService'
-import { container } from '@/lib/di/container'
+import { Container } from '@/lib/di/container'
 import { Vector2, Vector3 } from 'three'
 
 /**
@@ -34,10 +34,13 @@ export class ResizePlacedMeshInteractionHandler implements InteractionHandler {
 	private initialTransform: PlacedMeshTransform | null = null
 	private previewTransform: PlacedMeshTransform | null = null
 	private hasPreviewChanges: boolean = false
-	private readonly pointerMathService: PointerMathService = container.resolve<PointerMathService>('PointerMathService')
-	private readonly meshUtils: MeshUtils = container.resolve<MeshUtils>('MeshUtils')
+	private readonly pointerMathService: PointerMathService = this.container.resolve<PointerMathService>('PointerMathService')
+	private readonly meshUtils: MeshUtils = this.container.resolve<MeshUtils>('MeshUtils')
 
-	public constructor(private readonly editor: Editor) {}
+	public constructor(
+		private readonly editor: Editor,
+		private readonly container: Container
+	) {}
 
 	public isEnabled(event: InteractionEvent): boolean {
 		if (!this.enabled || !event.context?.hitResult) {

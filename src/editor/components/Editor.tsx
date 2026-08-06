@@ -3,21 +3,29 @@ import { Loader } from '@/components/ui/loader'
 import { AppliedPiecesStack } from '@/editor/components/AppliedPiecesStack'
 import { EditorBlockingOverlay } from '@/editor/components/EditorBlockingOverlay'
 import { EditorPanel } from '@/editor/components/EditorPanel'
-import { RegionSelectionModal } from '@/editor/components/RegionSelectionModal'
-import { useEditorLoader } from '@/editor/hooks/useEditorLoader'
-import { ReactBridgeContext, useReactBridge } from '@/editor/hooks/useReactBridge'
-import { registerEditorServices } from '@/editor/services/registerEditorServices'
-import { cn } from '@/lib/utils'
-import { useRef } from 'react'
 import EditorToolbar from '@/editor/components/EditorToolbar'
 import { InstructionOverlay } from '@/editor/components/InstructionOverlay'
+import { RegionSelectionModal } from '@/editor/components/RegionSelectionModal'
+import { useContainer } from '@/editor/hooks/useContainer'
+import { useEditorLoader } from '@/editor/hooks/useEditorLoader'
+import { ReactBridgeContext, useReactBridge } from '@/editor/hooks/useReactBridge'
+import { PreviewMeshRegistrar } from '@/editor/main/PreviewMeshRegistrar'
+import { registerPreviewMeshInstances } from '@/editor/main/registerPreviewMeshInstances'
+import { registerEditorServices } from '@/editor/services/registerEditorServices'
+import { Container } from '@/lib/di/container'
+import { cn } from '@/lib/utils'
+import { useRef } from 'react'
 
 interface EditorProps {
 	projectId: string
 }
 
 export function Editor({ projectId }: EditorProps) {
-	registerEditorServices()
+	const container: Container = useContainer()
+
+	registerEditorServices(container)
+
+	registerPreviewMeshInstances(container.resolve<PreviewMeshRegistrar>('PreviewMeshRegistrar'))
 
 	const mountRef = useRef<HTMLDivElement>(null)
 

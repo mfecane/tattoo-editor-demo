@@ -1,3 +1,4 @@
+import { useContainer } from '@/editor/hooks/useContainer'
 import { Editor } from '@/editor/main/Editor'
 import { EditorFactory } from '@/editor/main/EditorFactory'
 import { EditorState, useEditorStore } from '@/editor/store/editorStore'
@@ -22,16 +23,18 @@ async function load(projectId: string): Promise<[ProjectRecord, DesignImageItemW
 export function useEditorLoader(projectId: string, mountRef: React.RefObject<HTMLDivElement | null>): EditorState {
 	let editorStore = useEditorStore()
 
+	const container = useContainer()
+
 	useEffect(() => {
 		if (!mountRef.current) return
 
-		const container = mountRef.current
+		const mountElement = mountRef.current
 		let isCancelled = false
 		let editor: Editor | null = null
 
 		editorStore.setLoading(true)
 
-		new EditorFactory().createEditor(container).then(async (editorInstance) => {
+		new EditorFactory(container).createEditor(mountElement).then(async (editorInstance) => {
 			if (isCancelled) {
 				editorInstance.destroy()
 				return

@@ -14,6 +14,7 @@ import { RotatePlacedMeshInteractionHandler } from '@/editor/interaction/handler
 import { SelectionInteractionHandler } from '@/editor/interaction/handlers/SelectionInteractionHandler'
 import { SlideVertexInteractionHandler } from '@/editor/interaction/handlers/SlideVertexInteractionHandler'
 import { Editor } from '@/editor/main/Editor'
+import { Container } from '@/lib/di/container'
 import { PerspectiveCamera, Raycaster, Vector2 } from 'three'
 
 export class CanvasEventHandler {
@@ -49,19 +50,22 @@ export class CanvasEventHandler {
 
 	private camera: PerspectiveCamera
 
-	public constructor(private readonly editor: Editor) {
+	public constructor(
+		private readonly editor: Editor,
+		private readonly container: Container
+	) {
 		this.element = editor.renderer.domElement
 		this.camera = editor.camera
 		this.raycaster = new Raycaster()
 		this.mouse = new Vector2()
-		this.context = new InteractionContext(this.editor)
+		this.context = new InteractionContext(this.editor, this.container)
 		this.handlers = [
 			new PlacementGuardInteractionHandler(this.editor),
 			new SelectionInteractionHandler(this.editor),
-			new ResizePlacedMeshInteractionHandler(this.editor),
-			new RotatePlacedMeshInteractionHandler(this.editor),
-			new MovePlacedMeshInteractionHandler(this.editor),
-			new SlideVertexInteractionHandler(this.editor),
+			new ResizePlacedMeshInteractionHandler(this.editor, this.container),
+			new RotatePlacedMeshInteractionHandler(this.editor, this.container),
+			new MovePlacedMeshInteractionHandler(this.editor, this.container),
+			new SlideVertexInteractionHandler(this.editor, this.container),
 			new DragInteractionHandler(this.editor),
 			new PlacementInteractionHandler(this.editor),
 			new HoverInteractionHandler(this.editor),

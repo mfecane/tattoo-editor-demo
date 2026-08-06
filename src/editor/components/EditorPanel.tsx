@@ -1,8 +1,12 @@
 'use client'
 import ConfirmModal from '@/components/modals/ConfirmModal'
-import { BASE_URL } from '@/editor/constants'
+import { Button } from '@/components/ui/button'
+import { Marker, MarkerContent, MarkerIcon } from '@/components/ui/marker'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProjectSketchesPanel } from '@/editor/components/ProjectSketchesPanel'
+import { BASE_URL } from '@/editor/constants'
 import { useReactBridgeContext } from '@/editor/hooks/useReactBridge'
+import { Camera, Check, Image, Settings2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 interface RuntimeProjectImage {
@@ -121,37 +125,83 @@ export function EditorPanel() {
 	}
 
 	return (
-		<section className="w-80 flex-shrink-0 overflow-y-auto border-l border-neutral-800 bg-neutral-900 p-4">
-			<div className="space-y-6">
-				<ProjectSketchesPanel
-					projectImages={projectImages}
-					onImageDelete={onProjectImageDelete}
-					onImageClick={onProjectImageClick}
-					onFilesSelected={(files) => {
-						onFilesSelected(files).catch((error: unknown) => {
-							const message = error instanceof Error ? error.message : String(error)
-							setUploadError(message)
-						})
-					}}
-					onDragOver={onDragOver}
-					onDragLeave={onDragLeave}
-					onDrop={onDrop}
-					isDragging={isDragging}
-					fileInputRef={fileInputRef}
-				/>
-				{uploadError ? <p className="text-xs text-red-400">{uploadError}</p> : null}
+		<section
+			data-id="editor-panel"
+			className="w-80 flex-shrink-0 overflow-y-auto border-l border-neutral-800 bg-neutral-900 p-2"
+		>
+			<Tabs defaultValue="media" className="h-full">
+				<TabsList className="w-full">
+					<TabsTrigger value="media" className="flex-1 flex gap-2">
+						<Image className="w-4 h-4" />
+						Media
+					</TabsTrigger>
+					<TabsTrigger value="renders" className="flex-1 flex gap-2">
+						<Camera className="w-4 h-4" />
+						Renders
+					</TabsTrigger>
+					<TabsTrigger value="settings" className="flex-1 flex gap-2">
+						<Settings2 className="w-4 h-4" />
+						Settings
+					</TabsTrigger>
+				</TabsList>
 
-				<ConfirmModal
-					isOpen={deleteConfirmOpen}
-					title="Delete image?"
-					description="This removes the image from this runtime session."
-					confirmText="Delete"
-					cancelText="Cancel"
-					confirmVariant="danger"
-					onCancel={handleDeleteCancel}
-					onConfirm={handleConfirmDelete}
-				/>
-			</div>
+				<TabsContent value="media">
+					<div className="space-y-6 p-2 rounded-md bg-neutral-950">
+						<ProjectSketchesPanel
+							projectImages={projectImages}
+							onImageDelete={onProjectImageDelete}
+							onImageClick={onProjectImageClick}
+							onFilesSelected={(files) => {
+								onFilesSelected(files).catch((error: unknown) => {
+									const message = error instanceof Error ? error.message : String(error)
+									setUploadError(message)
+								})
+							}}
+							onDragOver={onDragOver}
+							onDragLeave={onDragLeave}
+							onDrop={onDrop}
+							isDragging={isDragging}
+							fileInputRef={fileInputRef}
+						/>
+						{uploadError ? <p className="text-xs text-red-400">{uploadError}</p> : null}
+
+						<ConfirmModal
+							isOpen={deleteConfirmOpen}
+							title="Delete image?"
+							description="This removes the image from this runtime session."
+							confirmText="Delete"
+							cancelText="Cancel"
+							confirmVariant="danger"
+							onCancel={handleDeleteCancel}
+							onConfirm={handleConfirmDelete}
+						/>
+					</div>
+				</TabsContent>
+
+				<TabsContent value="renders">
+					<div className="space-y-6 p-2 rounded-md bg-neutral-950">
+						<p className="text-xs text-neutral-500">No renders yet.</p>
+					</div>
+				</TabsContent>
+
+				<TabsContent value="settings">
+					<div className="space-y-2 p-2 py-4 rounded-md bg-neutral-950">
+						<Button variant="secondary" className="block w-full" disabled>
+							Store camera position
+						</Button>
+						<Marker className="flex">
+							<MarkerIcon>
+								<Check className="w-4 h-4" />
+							</MarkerIcon>
+							<MarkerContent>Stored</MarkerContent>
+						</Marker>
+						<Button variant="secondary" className="block w-full" disabled>
+							Move camera to stored position
+						</Button>
+						<p>Stored camera position will be used as start position in view mode.</p>
+					</div>
+				</TabsContent>
+			</Tabs>
 		</section>
 	)
 }
