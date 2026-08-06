@@ -1,306 +1,139 @@
 import { Vector3 } from 'three'
 
+/** Shared pure geometry math used by GeometryModifier implementations and UV search. */
+
+interface EdgeOwner {
+	triangle: number
+	i0: number
+	i1: number
+}
+
 /**
- * Geometry utilities for bake operations: push, expansion, UV extrapolation.
- * `push` and `growBoundaryEdges` are two independent, separately-callable steps (not bundled
- * into one "expand" call) so a caller can inspect/use the intermediate pushed-only result -
- * e.g. RaycastUVSearch visualizes both stages separately during debugging.
+ * Makes triangle winding consistent across the whole mesh by propagating orientation across
+ * shared edges from one seed triangle per connected component (flood-fill), instead of comparing
+ * each triangle against a single global reference direction. A draped/wrapped mesh's face normals
+ * can legitimately span far more than 90° of directions (e.g. wrapped around a cylindrical body),
+ * so no single reference vector can classify winding correctness - only comparing a triangle
+ * against its direct edge-neighbors can, since two consistently-wound triangles always share an
+ * edge in opposite directions.
  */
-export class GeometryUtils {
-	/**
-	 * Normalize winding order: ensure all triangles face the same direction.
-	 * Flips any triangles whose normals point opposite to the majority direction.
-	 */
-	static normalizeWinding(positions: Float32Array, indices: Uint32Array): Uint32Array {
-		// Compute face normals and find average direction
-		const faceNormals: Vector3[] = []
-		const avgNormal = new Vector3()
+export function normalizeWinding(indices: Uint32Array): Uint32Array {
+	const triangleCount = indices.length / 3
+	const normalizedIndices = new Uint32Array(indices)
 
-		const a = new Vector3()
-		const b = new Vector3()
-		const c = new Vector3()
-		const faceNormal = new Vector3()
+	const edgeKey = (i0: number, i1: number): string => (i0 < i1 ? `${i0},${i1}` : `${i1},${i0}`)
 
-		for (let t = 0; t < indices.length; t += 3) {
-			const ia = indices[t]
-			const ib = indices[t + 1]
-			const ic = indices[t + 2]
-
-			a.fromArray(positions, ia * 3)
-			b.fromArray(positions, ib * 3)
-			c.fromArray(positions, ic * 3)
-
-			b.sub(a)
-			c.sub(a)
-			faceNormal.crossVectors(b, c).normalize()
-			faceNormals.push(faceNormal.clone())
-			avgNormal.add(faceNormal)
+	// Undirected edge -> triangles that own it, each with the edge's direction as originally wound.
+	const edgeOwners: Map<string, EdgeOwner[]> = new Map()
+	for (let t = 0; t < triangleCount; t++) {
+		const i0 = normalizedIndices[t * 3]
+		const i1 = normalizedIndices[t * 3 + 1]
+		const i2 = normalizedIndices[t * 3 + 2]
+		for (const [a, b] of [[i0, i1], [i1, i2], [i2, i0]] as [number, number][]) {
+			const key = edgeKey(a, b)
+			const owners = edgeOwners.get(key) ?? []
+			owners.push({ triangle: t, i0: a, i1: b })
+			edgeOwners.set(key, owners)
 		}
-
-		avgNormal.negate().normalize()
-
-		// Flip triangles that point opposite to (negated) average
-		const normalizedIndices = new Uint32Array(indices)
-		for (let t = 0; t < faceNormals.length; t++) {
-			if (faceNormals[t].dot(avgNormal) < 0) {
-				// Flip winding: swap second and third vertices
-				const triStart = t * 3
-				const temp = normalizedIndices[triStart + 1]
-				normalizedIndices[triStart + 1] = normalizedIndices[triStart + 2]
-				normalizedIndices[triStart + 2] = temp
-			}
-		}
-
-		return normalizedIndices
 	}
 
-	/**
-	 * Push geometry along vertex normals by a given margin.
-	 * Computes vertex normals from face normals, then offsets each vertex outward.
-	 */
-	static push(positions: Float32Array, indices: Uint32Array, margin: number): Float32Array {
-		const expanded = new Float32Array(positions.length)
-		expanded.set(positions)
-
-		// Compute vertex normals from face normals
-		const normals = new Float32Array(positions.length)
-		const vertexNormalCounts = new Float32Array(positions.length / 3)
-
-		const a = new Vector3()
-		const b = new Vector3()
-		const c = new Vector3()
-		const faceNormal = new Vector3()
-
-		for (let t = 0; t < indices.length; t += 3) {
-			const ia = indices[t]
-			const ib = indices[t + 1]
-			const ic = indices[t + 2]
-
-			a.fromArray(positions, ia * 3)
-			b.fromArray(positions, ib * 3)
-			c.fromArray(positions, ic * 3)
-
-			b.sub(a)
-			c.sub(a)
-			faceNormal.crossVectors(b, c).normalize()
-
-			for (const i of [ia, ib, ic]) {
-				normals[i * 3] += faceNormal.x
-				normals[i * 3 + 1] += faceNormal.y
-				normals[i * 3 + 2] += faceNormal.z
-				vertexNormalCounts[i]++
-			}
-		}
-
-		const normal = new Vector3()
-		let normalCount = 0
-
-		for (let i = 0; i < positions.length / 3; i++) {
-			if (vertexNormalCounts[i] > 0) {
-				normal.set(normals[i * 3], normals[i * 3 + 1], normals[i * 3 + 2])
-				normal.divideScalar(vertexNormalCounts[i])
-				normalCount++
-			}
-		}
-
-		// Apply expansion along averaged normals, flipping any that point opposite to average
-		for (let i = 0; i < positions.length / 3; i++) {
-			if (vertexNormalCounts[i] > 0) {
-				normal.set(normals[i * 3], normals[i * 3 + 1], normals[i * 3 + 2])
-				normal.divideScalar(vertexNormalCounts[i]).normalize()
-				expanded[i * 3] += normal.x * margin
-				expanded[i * 3 + 1] += normal.y * margin
-				expanded[i * 3 + 2] += normal.z * margin
-			}
-		}
-
-		return expanded
+	const flipTriangle = (t: number): void => {
+		const triStart = t * 3
+		const temp = normalizedIndices[triStart + 1]
+		normalizedIndices[triStart + 1] = normalizedIndices[triStart + 2]
+		normalizedIndices[triStart + 2] = temp
 	}
 
-	/**
-	 * Grow boundary edges with UV interpolation: create shared rim vertices around boundary loop.
-	 * ONE new vertex per boundary vertex, grown along its normal - maintains topology.
-	 */
-	static growBoundaryEdges(
-		positions: Float32Array,
-		indices: Uint32Array,
-		uvs: Float32Array,
-		growth: number
-	): { positions: Float32Array; indices: Uint32Array; uvs: Float32Array } {
-		// Find boundary edges
-		const edgeMap = new Map<string, number>()
-		const boundaryEdges: [number, number][] = []
-		const boundaryVertices = new Set<number>()
+	const visited = new Uint8Array(triangleCount)
 
-		for (let t = 0; t < indices.length; t += 3) {
-			const ia = indices[t]
-			const ib = indices[t + 1]
-			const ic = indices[t + 2]
+	for (let seed = 0; seed < triangleCount; seed++) {
+		if (visited[seed]) {
+			continue
+		}
+		visited[seed] = 1
+		const queue: number[] = [seed]
 
-			for (const [i0, i1] of [[ia, ib], [ib, ic], [ic, ia]]) {
-				const key = i0 < i1 ? `${i0},${i1}` : `${i1},${i0}`
-				edgeMap.set(key, (edgeMap.get(key) ?? 0) + 1)
+		while (queue.length > 0) {
+			const t = queue.shift()!
+			const i0 = normalizedIndices[t * 3]
+			const i1 = normalizedIndices[t * 3 + 1]
+			const i2 = normalizedIndices[t * 3 + 2]
+
+			for (const [a, b] of [[i0, i1], [i1, i2], [i2, i0]] as [number, number][]) {
+				const owners = edgeOwners.get(edgeKey(a, b))!
+				for (const owner of owners) {
+					if (owner.triangle === t || visited[owner.triangle]) {
+						continue
+					}
+					// Consistent winding: the neighbor should own this shared edge in the opposite
+					// direction (b, a). If it owns the same direction (a, b), it disagrees - flip it.
+					if (owner.i0 === a && owner.i1 === b) {
+						flipTriangle(owner.triangle)
+					}
+					visited[owner.triangle] = 1
+					queue.push(owner.triangle)
+				}
 			}
 		}
-
-		for (const [key, count] of edgeMap) {
-			if (count === 1) {
-				const [i0, i1] = key.split(',').map(Number)
-				boundaryEdges.push([i0, i1])
-				boundaryVertices.add(i0)
-				boundaryVertices.add(i1)
-			}
-		}
-
-		// Compute vertex normals
-		const normals = this.computeVertexNormals(positions, indices)
-
-		// Create ONE rim vertex per boundary vertex
-		// Growth direction: perpendicular to face normal, radially outward from center
-		const rimPositions: number[] = []
-		const rimUVs: number[] = []
-		const vertexToRimIndex = new Map<number, number>()
-		let newVertexIndex = positions.length / 3
-
-		// Compute mesh center for radial outward direction
-		const center = new Vector3()
-		for (let i = 0; i < positions.length / 3; i++) {
-			center.x += positions[i * 3]
-			center.y += positions[i * 3 + 1]
-			center.z += positions[i * 3 + 2]
-		}
-		center.divideScalar(positions.length / 3)
-
-		// Compute UV space center for radial UV extrapolation
-		const uvCenter = new Vector3(0, 0, 0)
-		for (const vertexIndex of boundaryVertices) {
-			uvCenter.x += uvs[vertexIndex * 2]
-			uvCenter.y += uvs[vertexIndex * 2 + 1]
-		}
-		uvCenter.divideScalar(boundaryVertices.size)
-
-		const posVec = new Vector3()
-		const normVec = new Vector3()
-		const radialDir = new Vector3()
-		const uvRadialDir = new Vector3()
-
-		for (const vertexIndex of boundaryVertices) {
-			posVec.fromArray(positions, vertexIndex * 3)
-			normVec.set(normals[vertexIndex * 3], normals[vertexIndex * 3 + 1], normals[vertexIndex * 3 + 2]).normalize()
-
-			// Growth direction: radial from center, projected onto surface (perpendicular to normal)
-			radialDir.subVectors(posVec, center).normalize()
-
-			// Project onto the surface plane: remove component along the normal
-			const normalComponent = radialDir.dot(normVec)
-			radialDir.addScaledVector(normVec, -normalComponent).normalize()
-
-			// Grow radially outward
-			const grownPos = posVec.clone().addScaledVector(radialDir, growth)
-			rimPositions.push(grownPos.x, grownPos.y, grownPos.z)
-
-			// Extrapolate UVs radially in UV space
-			const boundaryU = uvs[vertexIndex * 2]
-			const boundaryV = uvs[vertexIndex * 2 + 1]
-			uvRadialDir.set(boundaryU - uvCenter.x, boundaryV - uvCenter.y, 0).normalize()
-			const grownU = boundaryU + uvRadialDir.x * growth
-			const grownV = boundaryV + uvRadialDir.y * growth
-			rimUVs.push(grownU, grownV)
-
-			vertexToRimIndex.set(vertexIndex, newVertexIndex)
-			newVertexIndex++
-		}
-
-		// Create quads connecting original boundary loop to rim loop
-		const rimIndices: number[] = []
-		for (const [i0, i1] of boundaryEdges) {
-			const ri0 = vertexToRimIndex.get(i0)!
-			const ri1 = vertexToRimIndex.get(i1)!
-
-			// Quad: i0-i1-ri1-ri0 (2 triangles)
-			rimIndices.push(i0, i1, ri0)
-			rimIndices.push(i1, ri1, ri0)
-		}
-
-		// Merge original and rim geometry
-		const mergedPositions = new Float32Array(positions.length + rimPositions.length)
-		mergedPositions.set(positions)
-		for (let i = 0; i < rimPositions.length; i++) {
-			mergedPositions[positions.length + i] = rimPositions[i]
-		}
-
-		const mergedUVs = new Float32Array(uvs.length + rimUVs.length)
-		mergedUVs.set(uvs)
-		for (let i = 0; i < rimUVs.length; i++) {
-			mergedUVs[uvs.length + i] = rimUVs[i]
-		}
-
-		const mergedIndices = new Uint32Array(indices.length + rimIndices.length)
-		mergedIndices.set(indices)
-		for (let i = 0; i < rimIndices.length; i++) {
-			mergedIndices[indices.length + i] = rimIndices[i]
-		}
-
-		// Normalize winding order: ensure all triangles face the same direction
-		const normalizedIndices = this.normalizeWinding(mergedPositions, mergedIndices)
-
-		return { positions: mergedPositions, indices: normalizedIndices, uvs: mergedUVs }
 	}
 
-	private static computeVertexNormals(positions: Float32Array, indices: Uint32Array): Float32Array {
-		const normals = new Float32Array(positions.length)
-		const vertexNormalCounts = new Float32Array(positions.length / 3)
+	return normalizedIndices
+}
 
-		const a = new Vector3()
-		const b = new Vector3()
-		const c = new Vector3()
-		const faceNormal = new Vector3()
+/** Computes one averaged, normalized normal per vertex from its adjacent face normals; zero vector for unreferenced vertices. */
+export function computeVertexNormals(positions: Float32Array, indices: Uint32Array): Float32Array {
+	const normals = new Float32Array(positions.length)
+	const vertexNormalCounts = new Float32Array(positions.length / 3)
 
-		for (let t = 0; t < indices.length; t += 3) {
-			const ia = indices[t]
-			const ib = indices[t + 1]
-			const ic = indices[t + 2]
+	const a = new Vector3()
+	const b = new Vector3()
+	const c = new Vector3()
+	const faceNormal = new Vector3()
 
-			a.fromArray(positions, ia * 3)
-			b.fromArray(positions, ib * 3)
-			c.fromArray(positions, ic * 3)
+	for (let t = 0; t < indices.length; t += 3) {
+		const ia = indices[t]
+		const ib = indices[t + 1]
+		const ic = indices[t + 2]
 
-			b.sub(a)
-			c.sub(a)
-			faceNormal.crossVectors(b, c).normalize()
+		a.fromArray(positions, ia * 3)
+		b.fromArray(positions, ib * 3)
+		c.fromArray(positions, ic * 3)
 
-			for (const i of [ia, ib, ic]) {
-				normals[i * 3] += faceNormal.x
-				normals[i * 3 + 1] += faceNormal.y
-				normals[i * 3 + 2] += faceNormal.z
-				vertexNormalCounts[i]++
-			}
+		b.sub(a)
+		c.sub(a)
+		faceNormal.crossVectors(b, c).normalize()
+
+		for (const i of [ia, ib, ic]) {
+			normals[i * 3] += faceNormal.x
+			normals[i * 3 + 1] += faceNormal.y
+			normals[i * 3 + 2] += faceNormal.z
+			vertexNormalCounts[i]++
 		}
-
-		// Normalize
-		const normal = new Vector3()
-		for (let i = 0; i < positions.length / 3; i++) {
-			if (vertexNormalCounts[i] > 0) {
-				normal.set(normals[i * 3], normals[i * 3 + 1], normals[i * 3 + 2])
-				normal.divideScalar(vertexNormalCounts[i]).normalize()
-				normals[i * 3] = normal.x
-				normals[i * 3 + 1] = normal.y
-				normals[i * 3 + 2] = normal.z
-			}
-		}
-
-		return normals
 	}
 
-	/** Barycentric-interpolates a 2-component UV attribute at triangle (ia, ib, ic) using barycentric coords `bary`. */
-	static interpolateUv(uvs: Float32Array, ia: number, ib: number, ic: number, bary: Vector3): [number, number] {
-		const uvAx = uvs[ia * 2]
-		const uvAy = uvs[ia * 2 + 1]
-		const uvBx = uvs[ib * 2]
-		const uvBy = uvs[ib * 2 + 1]
-		const uvCx = uvs[ic * 2]
-		const uvCy = uvs[ic * 2 + 1]
-
-		return [bary.x * uvAx + bary.y * uvBx + bary.z * uvCx, bary.x * uvAy + bary.y * uvBy + bary.z * uvCy]
+	// Normalize
+	const normal = new Vector3()
+	for (let i = 0; i < positions.length / 3; i++) {
+		if (vertexNormalCounts[i] > 0) {
+			normal.set(normals[i * 3], normals[i * 3 + 1], normals[i * 3 + 2])
+			normal.divideScalar(vertexNormalCounts[i]).normalize()
+			normals[i * 3] = normal.x
+			normals[i * 3 + 1] = normal.y
+			normals[i * 3 + 2] = normal.z
+		}
 	}
+
+	return normals
+}
+
+/** Barycentric-interpolates a 2-component UV attribute at triangle (ia, ib, ic) using barycentric coords `bary`. */
+export function interpolateUv(uvs: Float32Array, ia: number, ib: number, ic: number, bary: Vector3): [number, number] {
+	const uvAx = uvs[ia * 2]
+	const uvAy = uvs[ia * 2 + 1]
+	const uvBx = uvs[ib * 2]
+	const uvBy = uvs[ib * 2 + 1]
+	const uvCx = uvs[ic * 2]
+	const uvCy = uvs[ic * 2 + 1]
+
+	return [bary.x * uvAx + bary.y * uvBx + bary.z * uvCx, bary.x * uvAy + bary.y * uvBy + bary.z * uvCy]
 }

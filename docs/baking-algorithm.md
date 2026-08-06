@@ -44,34 +44,84 @@ objects - no GL context, no live mesh references cross into the search step. Sna
 Returns `null` if either geometry is missing required attributes (e.g. body has no editable
 group) - `PatchBaker` treats that as "nothing to do".
 
-### 2. UV search - `UVSearchAlgorithm` (`RaycastUVSearch`)
+### 2. UV search - `UVSearchAlgorithm` (`RaycastUVSearch` / `ClosestPointUVSearch`)
 
 Goal: for every body vertex that could be covered by the patch, find the corresponding UV on the
-patch's own sketch texture. Patch-centric, margin-expanded raycasting:
+patch's own sketch texture. Two interchangeable implementations, picked by
+`MESH_BAKE_CONSTANTS.UV_SEARCH_ALGORITHM` in `PatchBaker`'s constructor - same
+`UVSearchAlgorithm` contract, same expand-and-grow-boundary patch-centric approach, different core
+query.
 
-1. **Push** (`GeometryUtils.push`) - offsets the patch's local-space vertices outward along
-   averaged vertex normals by `RAYCAST_UV_SEARCH_CONSTANTS.NORMAL_MARGIN` (0.02). Gives body
-   vertices near the patch's silhouette, but just outside its raw footprint, something to hit.
-2. **Grow boundary rim** (`GeometryUtils.growBoundaryEdges`) - adds one new rim vertex per
-   boundary vertex, grown radially outward in both position and UV space by
+Both funnel their per-vertex results through the same shared pair (`UvSearchHit` /
+`UvTransferResultBuilder`) rather than each building the output geometry itself:
+
+- **`UvSearchHit`** - the common "uv transfer" unit: a hit patch triangle (resolved vertex
+  indices) plus barycentric coordinates within it. Either algorithm produces a
+  `Map<bodyVertexIndex, UvSearchHit>`.
+- **`UvTransferResultBuilder`** - `collectAffectedRegion` scans `body.groupRange` once for its
+  triangles/vertex indices (shared by both algorithms' setup); `buildUvTransferResult` turns a
+  `Map<number, UvSearchHit>` into the final output geometry (interpolating each hit's source UV via
+  `GeometryUtils.interpolateUv`), computing `coverage` along the way.
+
+#### RaycastUVSearch - margin-expanded raycasting
+
+1. **Push** (`PushModifier`) - offsets the patch's local-space vertices outward along averaged
+   vertex normals (`GeometryUtils.computeVertexNormals`) by
+   `RAYCAST_UV_SEARCH_CONSTANTS.NORMAL_MARGIN` (0.005). Since the patch is draped onto the body, it
+   sits almost exactly *on* the body surface along the raycast direction - without separation, hits
+   can land at `t ≈ 0` (lost to float noise) or, after relax smooths the patch inward on curved
+   regions, at negative `t` (behind the ray origin, unrecoverable regardless of face culling).
+   Pushing the patch out guards against both.
+2. **Grow boundary rim** (`GrowBoundaryEdgesModifier`) - adds one new rim vertex per boundary
+   vertex, grown radially outward in both position and UV space by
    `RAYCAST_UV_SEARCH_CONSTANTS.BOUNDARY_GROWTH` (0.08), stitched to the boundary loop with new
    triangles. Extrapolates UVs past the patch's real edge so rays landing just past the boundary
-   still resolve a source UV. Push and grow are independent steps (not a single bundled call).
+   still resolve a source UV. Push and grow are independent `GeometryModifier`s (not a single
+   bundled call).
 3. Expanded patch positions are transformed to world space and built into a raycast target mesh
    (`DoubleSide`, since the patch's winding vs. the body's outward normal isn't guaranteed).
 4. Every body vertex in the editable group is raycast from its world position along its world
    normal onto the expanded patch mesh. On a hit, the hit's barycentric coordinate against the
-   expanded triangle is used to interpolate a source UV (`GeometryUtils.interpolateUv`) from the
-   expanded patch's UVs.
-5. Output is a new `BufferGeometry`: only body vertices that got a hit, only triangles whose 3
-   vertices all got a hit. Carries body `position`/`normal`/`uv` plus `uv1` = the interpolated
-   source UV on the patch. `coverage` = hit vertices / affected vertices.
+   expanded triangle plus its resolved vertex indices become a `UvSearchHit`.
+5. `UvTransferResultBuilder.buildUvTransferResult` turns the hit map into the output geometry (see
+   above) against the expanded patch's UVs.
 
 A `Visual3dDebugger` can optionally be attached (`RaycastUVSearch.setDebugger`) to visualize the
 expanded patch wireframe and every ray, color-coded hit/miss.
 
-`UVSearchAlgorithm` is an interface specifically so the raycast approach can be swapped later
-without touching `PatchBaker`/`BakeRequestBuilder`.
+**`GeometryModifier`** is the shared interface behind step 1 and 2: `apply(geometry: BufferGeometry)
+=> BufferGeometry`, implemented by `PushModifier` (constructed with a margin) and
+`GrowBoundaryEdgesModifier` (constructed with a growth distance), each a pure transform that
+returns a new geometry rather than mutating its input. `GeometryUtils` holds the plain math
+functions both modifiers share (`computeVertexNormals`, `normalizeWinding`) plus `interpolateUv`,
+used by `UvTransferResultBuilder`.
+
+#### ClosestPointUVSearch - BVH-accelerated closest point, normal-gated
+
+Same patch-centric setup, minus the push margin (a closest-point query doesn't need surface
+separation the way a raycast does) - only `GrowBoundaryEdgesModifier` runs, using its own
+`CLOSEST_POINT_UV_SEARCH_CONSTANTS.BOUNDARY_GROWTH`. The expanded patch (world space) is built into
+a `MeshBVH` (`three-mesh-bvh`) instead of a raycast target mesh.
+
+For each affected body vertex, a `MeshBVH.shapecast` traversal finds the closest point on any
+patch triangle (edge/face, not nearest vertex) to that vertex's world position:
+
+- **Branch-and-bound pruning by distance** - `intersectsBounds` skips any subtree whose bounding
+  box can't beat the current closest distance; `boundsTraverseOrder` visits the nearer child first
+  so the bound tightens as early as possible.
+- **Normal-gated candidates** - `intersectsTriangle` rejects any triangle whose normal's dot
+  product with the query vertex's normal falls below
+  `CLOSEST_POINT_UV_SEARCH_CONSTANTS.NORMAL_DOT_THRESHOLD` (0 = past 90°) before even considering
+  its distance. Without this, closest-point-in-space snaps across concave folds (armpits, between
+  fingers) to geometrically-near but surface-unrelated patch regions - confirmed failure mode, not
+  hypothetical.
+- A match past `CLOSEST_POINT_UV_SEARCH_CONSTANTS.MAX_DISTANCE` doesn't count as a hit.
+
+The winning triangle + barycentric coordinate of the closest point become a `UvSearchHit`, same as
+the raycast path, then flow through the same `buildUvTransferResult`.
+
+`UVSearchAlgorithm` is an interface specifically so either search approach can be swapped, A/B'd,
+or (eventually) blended by region without touching `PatchBaker`/`BakeRequestBuilder`.
 
 ### 3. Rasterize - `FootprintRasterizer`
 
@@ -103,9 +153,9 @@ editable material `map`.
 
 ## Why the split
 
-- Search+rasterize (`PatchBaker`) is the expensive part (raycasting every affected body vertex,
-  full-resolution GPU draw) - only worth redoing when a patch is actually dirty, so it's async and
-  cached per patch.
+- Search+rasterize (`PatchBaker`) is the expensive part (searching for every affected body
+  vertex's source UV, full-resolution GPU draw) - only worth redoing when a patch is actually
+  dirty, so it's async and cached per patch.
 - Composite (`BodyTextureComposer`) is cheap (a handful of full-screen shader passes over cached
   textures) - safe to rerun after every single command so the body never shows a stale texture.
 
@@ -113,9 +163,15 @@ editable material `map`.
 
 - `src/editor/services/BakeRequestBuilder.ts` - live Three.js objects → plain request payload.
 - `src/editor/services/UVSearchAlgorithm.ts` - search interface + request/response shape.
-- `src/editor/services/RaycastUVSearch.ts` - the raycast search implementation.
-- `src/editor/services/GeometryUtils.ts` - `push`, `growBoundaryEdges`, `interpolateUv`.
-- `src/editor/services/PatchBaker.ts` - orchestrates search → rasterize per dirty patch, generation-based stale-result guard.
+- `src/editor/services/RaycastUVSearch.ts` - margin-expanded raycasting search implementation.
+- `src/editor/services/ClosestPointUVSearch.ts` - BVH-accelerated, normal-gated closest-point search implementation.
+- `src/editor/services/UvSearchHit.ts` - shared per-vertex hit contract (patch triangle + barycoord) both implementations produce.
+- `src/editor/services/UvTransferResultBuilder.ts` - shared `AffectedRegion` scan + `UvSearchHit` map → output geometry builder.
+- `src/editor/services/GeometryModifier.ts` - shared `BufferGeometry -> BufferGeometry` transform interface.
+- `src/editor/services/PushModifier.ts` - `GeometryModifier`: pushes vertices along their normals.
+- `src/editor/services/GrowBoundaryEdgesModifier.ts` - `GeometryModifier`: grows a boundary rim with UV extrapolation.
+- `src/editor/services/GeometryUtils.ts` - shared pure math: `computeVertexNormals`, `normalizeWinding`, `interpolateUv`.
+- `src/editor/services/PatchBaker.ts` - orchestrates search → rasterize per dirty patch, generation-based stale-result guard, picks the search implementation.
 - `src/editor/services/FootprintRasterizer.ts` - GPU draw: search result → `bakedTarget`.
 - `src/editor/services/BodyTextureComposer.ts` - composites cached `bakedTarget`s onto the body texture.
-- `src/editor/constants.ts` - `RAYCAST_UV_SEARCH_CONSTANTS`, `MESH_BAKE_CONSTANTS`.
+- `src/editor/constants.ts` - `RAYCAST_UV_SEARCH_CONSTANTS`, `CLOSEST_POINT_UV_SEARCH_CONSTANTS`, `MESH_BAKE_CONSTANTS`.

@@ -116,18 +116,40 @@ export const MESH_WRAP_CONSTANTS = {
 export const MESH_BAKE_CONSTANTS = {
 	// Resolution (both dimensions) of the baked color map and the composed body texture - see PatchBaker/BodyTextureComposer.
 	BAKE_RESOLUTION: 4096,
+
+	// Which UVSearchAlgorithm PatchBaker uses - flip for A/B comparison. See RaycastUVSearch vs
+	// ClosestPointUVSearch (docs/baking-algorithm.md).
+	UV_SEARCH_ALGORITHM: 'closest-point' as 'raycast' | 'closest-point',
 } as const
 
 export const RAYCAST_UV_SEARCH_CONSTANTS = {
 	// World-space distance the patch's expanded-copy geometry is pushed out along its vertex
-	// normals before raycasting - see GeometryUtils.push. Gives body vertices near the patch's
+	// normals before raycasting - see PushModifier. Gives body vertices near the patch's
 	// silhouette (but just outside its raw footprint) something to still hit.
-	NORMAL_MARGIN: 0.0,
+	NORMAL_MARGIN: 0.005,
 
 	// UV-space (and matching world-space) distance the patch's boundary rim is grown outward -
-	// see GeometryUtils.growBoundaryEdges. Extrapolates a ring of triangles/UVs past the patch's
+	// see GrowBoundaryEdgesModifier. Extrapolates a ring of triangles/UVs past the patch's
 	// original edge so raycasts landing just past the boundary still resolve a source UV.
 	BOUNDARY_GROWTH: 0.08,
+} as const
+
+export const CLOSEST_POINT_UV_SEARCH_CONSTANTS = {
+	// Same role as RAYCAST_UV_SEARCH_CONSTANTS.BOUNDARY_GROWTH - extrapolates a UV'd rim past the
+	// patch's raw edge so closest points landing just past the boundary still resolve a source UV.
+	BOUNDARY_GROWTH: 0.08,
+
+	// Minimum cosine similarity between a candidate triangle's normal and the query body vertex's
+	// normal for the triangle to even be considered - 0 rejects anything past 90°. Without this,
+	// closest-point-in-space snaps across concave folds (armpits, between fingers) to
+	// geometrically-near but surface-unrelated patch regions - confirmed failure mode, not
+	// hypothetical.
+	NORMAL_DOT_THRESHOLD: 0,
+
+	// World-space cap on how far a closest point can be from its query vertex and still count as a
+	// hit - past this, "closest" isn't close enough to be the same surface, just whatever happened
+	// to pass the normal gate.
+	MAX_DISTANCE: 0.1,
 } as const
 
 export const VERTEX_SLIDE_CONSTANTS = {

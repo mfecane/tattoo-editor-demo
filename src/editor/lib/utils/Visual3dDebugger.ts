@@ -137,6 +137,55 @@ export class Visual3dDebugger {
 	}
 
 	/**
+	 * Shows a mesh's 2-component UV attribute flattened into its own local XY plane (z=0) next to a
+	 * unit-square wireframe reference - lets a UV-transfer result be checked for coherence/tearing
+	 * directly, without needing to render a texture. Draws two objects under `${name}.square` and
+	 * `${name}.mesh`. Pass `matrix` to place/scale the flattened plane in world space (e.g. floating
+	 * above the source mesh) - `geometry` itself is not mutated.
+	 */
+	public showUvSpace(
+		name: string,
+		geometry: BufferGeometry,
+		uvAttributeName: string,
+		options?: { matrix?: Matrix4; meshColor?: number; squareColor?: number; timeoutMs?: number | null }
+	): void {
+		const uvAttribute = geometry.getAttribute(uvAttributeName)
+		if (!uvAttribute) {
+			return
+		}
+
+		const flattenedPositions = new Float32Array(uvAttribute.count * 3)
+		for (let i = 0; i < uvAttribute.count; i++) {
+			flattenedPositions[i * 3] = uvAttribute.getX(i)
+			flattenedPositions[i * 3 + 1] = uvAttribute.getY(i)
+			flattenedPositions[i * 3 + 2] = 0
+		}
+
+		const uvSpaceGeometry = new BufferGeometry()
+		uvSpaceGeometry.name = `${name}.uvSpaceMesh`
+		uvSpaceGeometry.setAttribute('position', new Float32BufferAttribute(flattenedPositions, 3))
+		if (geometry.index) {
+			uvSpaceGeometry.setIndex(geometry.index.clone())
+		}
+		this.showWireframe(`${name}.mesh`, uvSpaceGeometry, {
+			matrix: options?.matrix,
+			color: options?.meshColor ?? 0x00ff88,
+			timeoutMs: options?.timeoutMs,
+		})
+
+		const squareGeometry = new BufferGeometry()
+		squareGeometry.name = `${name}.uvSpaceSquare`
+		squareGeometry.setAttribute('position', new Float32BufferAttribute([0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0], 3))
+		squareGeometry.setIndex([0, 1, 2, 0, 2, 3])
+		this.showWireframe(`${name}.square`, squareGeometry, {
+			matrix: options?.matrix,
+			color: options?.squareColor ?? 0xffffff,
+			opacity: 0.5,
+			timeoutMs: options?.timeoutMs,
+		})
+	}
+
+	/**
 	 * Shows a batch of rays (origin -> target) as one LineSegments draw call, color-coded by
 	 * `hit` - e.g. every ray cast from a body vertex during raycast UV search, so both the hits
 	 * and the misses are visible at once.

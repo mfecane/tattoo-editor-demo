@@ -40,6 +40,11 @@ export class Editor {
 
 	public readonly canvasEventHandler: CanvasEventHandler
 
+	// Declared before patchBaker - PatchBaker's constructor wires it into its UVSearchAlgorithm
+	// (see PatchBaker constructor), and class field initializers run in declaration order, so it
+	// must exist first or that wiring silently receives undefined.
+	public readonly visual3dDebugger: Visual3dDebugger = new Visual3dDebugger()
+
 	public readonly patchBaker: PatchBaker = new PatchBaker(this)
 
 	public readonly bodyTextureComposer: BodyTextureComposer = new BodyTextureComposer(this)
@@ -54,8 +59,6 @@ export class Editor {
 
 	private animateId: number | null = null
 
-	public readonly visual3dDebugger: Visual3dDebugger
-
 	public constructor(
 		public readonly previewMesh: PreviewMesh,
 		public readonly container: HTMLElement,
@@ -69,10 +72,9 @@ export class Editor {
 
 		this.overlayScene = new Scene()
 
-		this.visual3dDebugger = new Visual3dDebugger()
-
-		// Wired to RaycastUVSearch (see PatchBaker.scheduleBake) to visualize the expanded patch
-		// geometry and hit rays during UV search - also available for ad-hoc debug use elsewhere.
+		// Wired to PatchBaker's active UVSearchAlgorithm (see PatchBaker constructor) to
+		// visualize the expanded patch geometry and hit rays during UV search - also
+		// available for ad-hoc debug use elsewhere.
 		this.visual3dDebugger.setScene(this.overlayScene)
 
 		this.camera = new PerspectiveCamera(

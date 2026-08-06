@@ -1,5 +1,7 @@
+import { MESH_BAKE_CONSTANTS } from '@/editor/constants'
 import { UVSearchAlgorithm } from '@/editor/services/UVSearchAlgorithm'
 import { RaycastUVSearch } from '@/editor/services/RaycastUVSearch'
+import { ClosestPointUVSearch } from '@/editor/services/ClosestPointUVSearch'
 import { BakeRequestBuilder } from '@/editor/services/BakeRequestBuilder'
 import { FootprintRasterizer } from '@/editor/services/FootprintRasterizer'
 import { Editor } from '@/editor/main/Editor'
@@ -9,10 +11,12 @@ import { BufferGeometry } from 'three'
  * Produces one drapedPatch's bakedLayer (Piece.bakedTarget) and nothing else - composing
  * bakedLayers onto the body texture is BodyTextureComposer's job.
  *
- * Search (RaycastUVSearch, main thread): expands the drapedPatch's geometry along its normals with
- * a boundary rim, then raycasts from each affected body vertex onto that expanded patch surface to
- * find its source UV. Request/response marshalling lives in BakeRequestBuilder; the actual GPU draw
- * that turns the search result into a texture lives in FootprintRasterizer.
+ * Search (UVSearchAlgorithm, main thread): finds, for each affected body vertex, its source UV on
+ * the drapedPatch surface. Which implementation - RaycastUVSearch (margin-expanded raycasting) or
+ * ClosestPointUVSearch (BVH-accelerated, normal-gated closest point) - is picked by
+ * MESH_BAKE_CONSTANTS.UV_SEARCH_ALGORITHM. Request/response marshalling lives in
+ * BakeRequestBuilder; the actual GPU draw that turns the search result into a texture lives in
+ * FootprintRasterizer.
  *
  * A bake is triggered (see EditorController.setSelectedPlacedMeshId) only when the user leaves a
  * dirty patch's edit context, never on every command - no explicit bake button, no blocking
@@ -24,7 +28,8 @@ export class PatchBaker {
 	private readonly generationByEntry: Map<string, number> = new Map()
 
 	public constructor(private readonly editor: Editor) {
-		this.uvSearch = new RaycastUVSearch()
+		this.uvSearch = MESH_BAKE_CONSTANTS.UV_SEARCH_ALGORITHM === 'closest-point' ? new ClosestPointUVSearch() : new RaycastUVSearch()
+		// this.uvSearch.setDebugger(this.editor.visual3dDebugger) // uncomment to visualize the expanded patch + hit/miss rays during search
 	}
 
 	public destroy(): void {

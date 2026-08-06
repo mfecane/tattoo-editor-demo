@@ -1,7 +1,10 @@
 import { RAYCAST_UV_SEARCH_CONSTANTS } from '@/editor/constants'
 import { Visual3dDebugger } from '@/editor/lib/utils/Visual3dDebugger'
 import { UVSearchAlgorithm, BakeSearchRequest } from '@/editor/services/UVSearchAlgorithm'
-import { GeometryUtils } from '@/editor/services/GeometryUtils'
+import { UvSearchHit } from '@/editor/services/UvSearchHit'
+import { collectAffectedRegion, buildUvTransferResult } from '@/editor/services/UvTransferResultBuilder'
+import { PushModifier } from '@/editor/services/PushModifier'
+import { GrowBoundaryEdgesModifier } from '@/editor/services/GrowBoundaryEdgesModifier'
 import { WorldSpaceUtils } from '@/editor/services/WorldSpaceUtils'
 import {
 	BufferGeometry,
@@ -49,36 +52,24 @@ export class RaycastUVSearch implements UVSearchAlgorithm {
 
 		const bodyPositions = body.geometry.attributes.position.array as Float32Array
 		const bodyNormals = body.geometry.attributes.normal.array as Float32Array
-		const bodyUvs = body.geometry.attributes.uv.array as Float32Array
-		const bodyIndices = body.geometry.index!.array as Uint32Array
 
 		const bodyMatrix = new Matrix4().fromArray(body.matrixWorldElements)
 		const patchMatrix = new Matrix4().fromArray(patch.matrixWorldElements)
 		const patchMatrixInverse = patchMatrix.clone().invert()
 
 		// Expand the patch's own geometry (already position + uv + index) in LOCAL space: push along
-		// vertex normals, then grow a boundary rim with UV extrapolation - two independent steps
-		// (not a single bundled call), though only the final result is visualized below.
+		// vertex normals, then grow a boundary rim with UV extrapolation - two independent
+		// GeometryModifiers (not a single bundled call), though only the final result is visualized
+		// below.
 		const patchGeometryLocal = patch.geometry
-		const patchPositionsLocal = patchGeometryLocal.attributes.position.array as Float32Array
-		const patchIndicesLocal = patchGeometryLocal.index!.array as Uint32Array
-		const patchUvsLocal = patchGeometryLocal.attributes.uv.array as Float32Array
-
-		const pushedPositionsLocal = GeometryUtils.push(
-			patchPositionsLocal,
-			patchIndicesLocal,
-			RAYCAST_UV_SEARCH_CONSTANTS.NORMAL_MARGIN
+		const pushedGeometryLocal = new PushModifier(RAYCAST_UV_SEARCH_CONSTANTS.NORMAL_MARGIN).apply(patchGeometryLocal)
+		const expandedGeometryLocal = new GrowBoundaryEdgesModifier(RAYCAST_UV_SEARCH_CONSTANTS.BOUNDARY_GROWTH).apply(
+			pushedGeometryLocal
 		)
 
-		const expanded = GeometryUtils.growBoundaryEdges(
-			pushedPositionsLocal,
-			patchIndicesLocal,
-			patchUvsLocal,
-			RAYCAST_UV_SEARCH_CONSTANTS.BOUNDARY_GROWTH
-		)
-
-		const expandedPositionsLocal = expanded.positions
-		const expandedIndicesLocal = expanded.indices
+		const expandedPositionsLocal = expandedGeometryLocal.attributes.position.array as Float32Array
+		const expandedIndicesLocal = expandedGeometryLocal.index!.array as Uint32Array
+		const expandedUvsLocal = expandedGeometryLocal.attributes.uv.array as Float32Array
 
 		// Transform expanded positions to world space
 		const expandedPositionsWorld = WorldSpaceUtils.toWorldSpace(expandedPositionsLocal, patchMatrix)
@@ -101,7 +92,7 @@ export class RaycastUVSearch implements UVSearchAlgorithm {
 		const bodyWorldPositions = WorldSpaceUtils.toWorldSpace(bodyPositions, bodyMatrix)
 
 		// Raycast from body vertices to patch
-		const validSourceUv = new Map<number, [number, number]>()
+		const hits = new Map<number, UvSearchHit>()
 		const rays: { origin: Vector3; target: Vector3; hit: boolean }[] = []
 		const direction = new Vector3()
 		const rayOrigin = new Vector3()
@@ -110,23 +101,10 @@ export class RaycastUVSearch implements UVSearchAlgorithm {
 		const patchVertexC = new Vector3()
 		const bary = new Vector3()
 
-		// Affected triangles: all triangles in the body's editable group
-		const [groupStart, groupCount] = body.groupRange
-		const affectedVertexIndices = new Set<number>()
-		const affectedTriangles: [number, number, number][] = []
-
-		for (let t = groupStart; t < groupStart + groupCount; t += 3) {
-			const ia = bodyIndices[t]
-			const ib = bodyIndices[t + 1]
-			const ic = bodyIndices[t + 2]
-			affectedTriangles.push([ia, ib, ic])
-			affectedVertexIndices.add(ia)
-			affectedVertexIndices.add(ib)
-			affectedVertexIndices.add(ic)
-		}
+		const region = collectAffectedRegion(body)
 
 		// Raycast each affected body vertex towards the patch
-		for (const bodyVertexIndex of affectedVertexIndices) {
+		for (const bodyVertexIndex of region.vertexIndices) {
 			// Ray origin: already in world space
 			rayOrigin.fromArray(bodyWorldPositions, bodyVertexIndex * 3)
 
@@ -142,8 +120,8 @@ export class RaycastUVSearch implements UVSearchAlgorithm {
 
 			// Raycast using Three.js Raycaster
 			raycaster.set(rayOrigin, direction)
-			const hits = raycaster.intersectObject(patchMesh)
-			const hit = hits.length > 0 ? hits[0] : null
+			const intersections = raycaster.intersectObject(patchMesh)
+			const hit = intersections.length > 0 ? intersections[0] : null
 
 			if (!hit) {
 				rays.push({
@@ -171,68 +149,12 @@ export class RaycastUVSearch implements UVSearchAlgorithm {
 			const hitPointLocal = hit.point.clone().applyMatrix4(patchMatrixInverse)
 			Triangle.getBarycoord(hitPointLocal, patchVertexA, patchVertexB, patchVertexC, bary)
 
-			validSourceUv.set(bodyVertexIndex, GeometryUtils.interpolateUv(expanded.uvs, ia, ib, ic, bary))
+			hits.set(bodyVertexIndex, { triangle: [ia, ib, ic], barycoord: bary.clone() })
 		}
 
 		this.visualDebugger?.showRays('raycastUvSearch.rays', rays)
 
-		// Build output geometry: only vertices with hits, only triangles using those vertices
-		const coverage = affectedVertexIndices.size > 0 ? validSourceUv.size / affectedVertexIndices.size : 0
-
-		// Map: old body vertex index → new index in result geometry
-		const oldToNewIndex = new Map<number, number>()
-		let newIndex = 0
-
-		// Collect all vertices that have hits
-		const newPositions: number[] = []
-		const newNormals: number[] = []
-		const newUVs: number[] = []
-		const newUV1s: number[] = []
-
-		for (const vertexIndex of validSourceUv.keys()) {
-			oldToNewIndex.set(vertexIndex, newIndex)
-
-			// Position, normal, uv from body
-			newPositions.push(
-				bodyPositions[vertexIndex * 3],
-				bodyPositions[vertexIndex * 3 + 1],
-				bodyPositions[vertexIndex * 3 + 2]
-			)
-			newNormals.push(
-				bodyNormals[vertexIndex * 3],
-				bodyNormals[vertexIndex * 3 + 1],
-				bodyNormals[vertexIndex * 3 + 2]
-			)
-			newUVs.push(bodyUvs[vertexIndex * 2], bodyUvs[vertexIndex * 2 + 1])
-
-			// uv1: source UV from raycast hit
-			const sourceUV = validSourceUv.get(vertexIndex)!
-			newUV1s.push(sourceUV[0], sourceUV[1])
-
-			newIndex++
-		}
-
-		// Build triangle indices (only triangles where all 3 vertices are in result)
-		const newIndices: number[] = []
-
-		for (const [ia, ib, ic] of affectedTriangles) {
-			const newIa = oldToNewIndex.get(ia)
-			const newIb = oldToNewIndex.get(ib)
-			const newIc = oldToNewIndex.get(ic)
-
-			if (newIa !== undefined && newIb !== undefined && newIc !== undefined) {
-				newIndices.push(newIa, newIb, newIc)
-			}
-		}
-
-		// Build result geometry
-		const resultGeometry = new BufferGeometry()
-		resultGeometry.setAttribute('position', new Float32BufferAttribute(new Float32Array(newPositions), 3))
-		resultGeometry.setAttribute('normal', new Float32BufferAttribute(new Float32Array(newNormals), 3))
-		resultGeometry.setAttribute('uv', new Float32BufferAttribute(new Float32Array(newUVs), 2))
-		resultGeometry.setAttribute('uv1', new Float32BufferAttribute(new Float32Array(newUV1s), 2))
-		resultGeometry.setIndex(new Uint32BufferAttribute(new Uint32Array(newIndices), 1))
-
-		return { geometry: resultGeometry, coverage, entryId, jobId }
+		const { geometry, coverage } = buildUvTransferResult(body, region, hits, expandedUvsLocal)
+		return { geometry, coverage, entryId, jobId }
 	}
 }

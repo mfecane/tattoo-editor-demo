@@ -1,3 +1,4 @@
+import { Visual3dDebugger } from '@/editor/lib/utils/Visual3dDebugger'
 import { BufferGeometry } from 'three'
 
 export interface BakeSearchRequest {
@@ -31,6 +32,9 @@ export interface UVSearchAlgorithm {
 	 * - entryId, jobId: for stale-result detection
 	 */
 	search(request: BakeSearchRequest): Promise<{ geometry: BufferGeometry; coverage: number; entryId: string; jobId: number }>
+
+	/** Optional - when set, each search visualizes the expanded patch (wireframe) and every query (rays), color-coded hit/miss. */
+	setDebugger(visualDebugger: Visual3dDebugger): void
 
 	/** Clean up any persistent resources (workers, etc). */
 	destroy(): void
