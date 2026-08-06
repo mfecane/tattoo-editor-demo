@@ -16,11 +16,17 @@ interface EditorUIState {
 	slideVertexFalloffRadius: number
 	selectedPlacedMeshId: string | null
 	selectedPlacedMeshWrapped: boolean
+	/** Whether the selected piece has ever been wrapped (applied) before - drives the discard-confirmation copy below. */
+	selectedPlacedMeshEverWrapped: boolean
 	/** Whether the live wrap-preview ghost currently shown for the selected flat mesh would succeed. Null until the debounced preview has run once. */
 	selectedPlacedMeshWrapPreviewValid: boolean | null
+	/** Whether the "discard this not-yet-applied piece?" confirmation is open - see guardAgainstUnresolvedPlacement. */
+	discardConfirmVisible: boolean
 	regionEditorTarget: SketchEditorTarget | null
 	sketchEditorTarget?: { sketchId: string; sketchUrl: string } | null
 	hint: EditorHint
+	/** Whether the editor container's whole-screen blocking spinner should show - any long-running background operation (currently just PatchBaker) can drive it. */
+	blocking: boolean
 }
 
 export class ReactBridge {
@@ -34,15 +40,20 @@ export class ReactBridge {
 		slideVertexFalloffRadius: VERTEX_SLIDE_CONSTANTS.FALLOFF_RADIUS,
 		selectedPlacedMeshId: null,
 		selectedPlacedMeshWrapped: false,
+		selectedPlacedMeshEverWrapped: false,
 		selectedPlacedMeshWrapPreviewValid: null,
+		discardConfirmVisible: false,
 		regionEditorTarget: null,
 		hint: EditorHint.NoMeshesPlaced,
+		blocking: false,
 	}
 
 	// External subscriptions used by useReactBridge.
 	public callbacks: Set<() => void> = new Set()
 	private controlsListenerAttached: boolean = false
 	private readonly handleControlsChange = (): void => this.refreshSelectionContextMenuPosition()
+	/** Action deferred behind the discard confirmation - see guardAgainstUnresolvedPlacement/confirmDiscard/cancelDiscard. */
+	private pendingGuardedAction: (() => void) | null = null
 
 	public constructor(public readonly editor: Editor) {
 		this.editor.controller.subscribe(() => {
@@ -60,6 +71,7 @@ export class ReactBridge {
 			this.notifySubscribers()
 		})
 		this.editor.controller.historyController.subscribe(() => this.notifySubscribers())
+		this.editor.patchBaker.addOnBakingChangeListener((baking) => this.updateState({ blocking: baking }))
 		this.refreshTool()
 		this.refreshHint()
 	}
@@ -119,6 +131,7 @@ export class ReactBridge {
 		this.updateState({
 			selectedPlacedMeshId: null,
 			selectedPlacedMeshWrapped: false,
+			selectedPlacedMeshEverWrapped: false,
 			selectedPlacedMeshWrapPreviewValid: null,
 		})
 		this.refreshHint()
@@ -148,11 +161,61 @@ export class ReactBridge {
 	}
 
 	// Placed-mesh selection + context menu actions.
+	/** Selecting always drives the context menu along with it - callers never position/show it themselves, so there's no step to forget (see refreshSelectionContextMenuPosition/setSelectionContextMenuPosition). */
 	public setSelectedPlacedMeshId(placedMeshId: string | null): void {
 		this.editor.controller.setSelectedPlacedMeshId(placedMeshId)
 		this.updateState({ selectedPlacedMeshId: placedMeshId })
 		this.refreshSelectionMirror()
 		this.refreshHint()
+		if (placedMeshId) {
+			this.refreshSelectionContextMenuPosition()
+		} else {
+			this.setSelectionContextMenuPosition(null)
+		}
+	}
+
+	/**
+	 * Guards any action that would abandon a selected regionMesh still in placement mode (not yet
+	 * applied/wrapped) - starting a new placement, selecting a different piece, clicking away on
+	 * the canvas. There must never be more than one unresolved piece at a time, so instead of
+	 * running the action right away this defers it behind the discard confirmation; nothing else
+	 * selected, or the selected piece already a wrapped drapedPatch, runs it immediately. See
+	 * confirmDiscard/cancelDiscard, requestSelectPlacedMesh, openRegionEditor and
+	 * PlacementGuardInteractionHandler - every entry point that can move the user away from the
+	 * selected piece goes through this.
+	 */
+	private guardAgainstUnresolvedPlacement(action: () => void): void {
+		const selected = this.editor.controller.getSelectedPlacedMesh()
+		if (selected && selected.kind === 'regionMesh') {
+			this.pendingGuardedAction = action
+			this.updateState({ discardConfirmVisible: true })
+			return
+		}
+		action()
+	}
+
+	/** The one path clicks (canvas or UI) should use to change selection - see guardAgainstUnresolvedPlacement. */
+	public requestSelectPlacedMesh(nextPlacedMeshId: string | null): void {
+		// Re-clicking the already-selected piece isn't "moving away" from it - let it through
+		// unguarded, same as before this piece could ever need confirming.
+		if (this.editor.controller.getSelectedPlacedMeshId() === nextPlacedMeshId) {
+			this.setSelectedPlacedMeshId(nextPlacedMeshId)
+			return
+		}
+		this.guardAgainstUnresolvedPlacement(() => this.setSelectedPlacedMeshId(nextPlacedMeshId))
+	}
+
+	public confirmDiscard(): void {
+		this.handleDelete()
+		this.updateState({ discardConfirmVisible: false })
+		const action = this.pendingGuardedAction
+		this.pendingGuardedAction = null
+		action?.()
+	}
+
+	public cancelDiscard(): void {
+		this.pendingGuardedAction = null
+		this.updateState({ discardConfirmVisible: false })
 	}
 
 	public handleWrap(): void {
@@ -176,11 +239,12 @@ export class ReactBridge {
 		this.updateState({ tool: this.editor.controller.getState().activeToolId })
 	}
 
-	/** Re-reads wrapped/wrapPreviewValid off the selected entry - the source of truth for both lives on Piece, not in this cached UI state. */
+	/** Re-reads wrapped/everWrapped/wrapPreviewValid off the selected entry - the source of truth for all three lives on Piece, not in this cached UI state. */
 	private refreshSelectionMirror(): void {
 		const entry = this.editor.controller.getSelectedPlacedMesh()
 		this.updateState({
 			selectedPlacedMeshWrapped: entry?.kind === 'drapedPatch',
+			selectedPlacedMeshEverWrapped: entry?.everWrapped ?? false,
 			selectedPlacedMeshWrapPreviewValid: entry?.wrapPreviewValid ?? null,
 		})
 	}
@@ -249,9 +313,12 @@ export class ReactBridge {
 	}
 
 	// Region editor actions.
+	/** Clicking a sketch to place another piece is itself a "move away" from an unresolved regionMesh - see guardAgainstUnresolvedPlacement. */
 	public openRegionEditor(sketchId: string, sketchUrl: string): void {
-		this.editor.controller.openRegionEditor({ sketchId, sketchUrl })
-		this.updateState({ sketchEditorTarget: { sketchId, sketchUrl } })
+		this.guardAgainstUnresolvedPlacement(() => {
+			this.editor.controller.openRegionEditor({ sketchId, sketchUrl })
+			this.updateState({ sketchEditorTarget: { sketchId, sketchUrl } })
+		})
 	}
 
 	public closeRegionEditor(): void {
@@ -280,6 +347,11 @@ export class ReactBridge {
 
 	public movePlacedMesh(fromIndex: number, toIndex: number): void {
 		this.editor.controller.project.placedMeshList.moveEntry(fromIndex, toIndex)
+		this.notifySubscribers()
+	}
+
+	public setPlacedMeshContrast(id: string, contrast: number): void {
+		this.editor.controller.setPlacedMeshContrast(id, contrast)
 		this.notifySubscribers()
 	}
 

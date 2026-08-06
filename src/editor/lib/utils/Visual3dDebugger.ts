@@ -2,6 +2,7 @@ import {
 	ArrowHelper,
 	BufferGeometry,
 	Color,
+	DoubleSide,
 	Float32BufferAttribute,
 	LineBasicMaterial,
 	LineSegments,
@@ -9,8 +10,10 @@ import {
 	Mesh,
 	MeshBasicMaterial,
 	Object3D,
+	PlaneGeometry,
 	Scene,
 	SphereGeometry,
+	Texture,
 	Vector3,
 } from 'three'
 
@@ -133,6 +136,35 @@ export class Visual3dDebugger {
 		}
 		mesh.renderOrder = 900
 		mesh.frustumCulled = false
+		this.addTemporaryObject(name, mesh, options?.timeoutMs ?? null)
+	}
+
+	/**
+	 * Shows a texture (e.g. a bakedTarget/render-target output) as a flat, camera-facing-ish quad in
+	 * world space - lets an intermediate render-to-texture result (masked bake, region mask, ...) be
+	 * pixel-inspected directly, without needing it composited onto anything. `transparent: true` so
+	 * alpha shows through to whatever's behind the quad, same as the real compositing would.
+	 */
+	public showTexture(
+		name: string,
+		texture: Texture,
+		options?: { position?: Vector3; size?: number; timeoutMs?: number | null }
+	): void {
+		const size = options?.size ?? 0.6
+		const geometry = new PlaneGeometry(size, size)
+		geometry.name = `${name}.geometry`
+		const material = new MeshBasicMaterial({
+			map: texture,
+			transparent: true,
+			side: DoubleSide,
+			depthTest: false,
+		})
+		material.name = `${name}.material`
+		const mesh = new Mesh(geometry, material)
+		mesh.renderOrder = 950
+		if (options?.position) {
+			mesh.position.copy(options.position)
+		}
 		this.addTemporaryObject(name, mesh, options?.timeoutMs ?? null)
 	}
 

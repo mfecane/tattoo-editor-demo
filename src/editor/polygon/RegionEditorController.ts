@@ -183,9 +183,17 @@ export class RegionEditorController {
 		this.notify()
 	}
 
+	/** Starts a new rect with no corners yet - called by PolygonDrawRectTool.enterTool() so the open polygon exists (and hit-testing is in drawing mode, see PolygonHitTester) before the drag even starts. Notification is left to setActiveTool(), which calls this and then notifies once. */
+	public beginDrawRect(): void {
+		this.collection.createPolygon('aarect')
+	}
+
 	/** Drag start on empty canvas while the draw-rect tool is active: pins both corners at the press point. */
 	public beginRectCorner(point: PolygonPoint): void {
-		const openPolygon = this.collection.createPolygon('aarect')
+		const openPolygon = this.collection.getOpenPolygon()
+		if (!openPolygon) {
+			throw new Error('beginRectCorner called with no open polygon - PolygonDrawRectTool.enterTool() should have created one')
+		}
 		openPolygon.addPoint(point)
 		openPolygon.addPoint(point)
 		this.notify()

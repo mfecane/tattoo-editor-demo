@@ -5,6 +5,7 @@ import {
 	DoubleSide,
 	Float32BufferAttribute,
 	Mesh,
+	NoBlending,
 	OrthographicCamera,
 	Scene,
 	ShaderMaterial,
@@ -18,7 +19,12 @@ import {
 
 /** One GPU draw call: body UV (as clip-space position) -> sample the sketch texture at the source UV (uv1). */
 export class FootprintRasterizer {
-	static rasterize(renderer: WebGLRenderer, footprintGeometry: BufferGeometry, sketchTexture: Texture | null): WebGLRenderTarget {
+	static rasterize(
+		renderer: WebGLRenderer,
+		footprintGeometry: BufferGeometry,
+		sketchTexture: Texture | null,
+		regionMask: Texture
+	): WebGLRenderTarget {
 		// Convert body UVs to clip-space positions
 		const bodyUVs = footprintGeometry.attributes.uv.array as Float32Array
 		const sourceUVs = footprintGeometry.attributes.uv1.array as Float32Array
@@ -49,8 +55,16 @@ export class FootprintRasterizer {
 		// * modelViewMatrix * position) - the manual gl_Position clip-space bypass this used to do
 		// silently failed to draw anything; this is the mechanism actually confirmed to work.
 		const material = new ShaderMaterial({
-			uniforms: { sketchTex: { value: sketchTexture } },
+			uniforms: { sketchTex: { value: sketchTexture }, regionMask: { value: regionMask } },
 			transparent: true,
+			// This is the only draw into a target freshly cleared to (0,0,0,0), so there's nothing
+			// underneath to blend against - but `transparent: true` still leaves NormalBlending active,
+			// which premultiplies gl_FragColor.rgb by its own alpha against that zero destination
+			// (result.rgb = src.rgb * src.a) before the write. Every downstream consumer (regionMask
+			// fade, BodyTextureComposer) treats bakedTarget as straight (non-premultiplied) alpha, so
+			// that silent premultiply corrupts rgb everywhere alpha isn't exactly 1 - invisible while
+			// regionMask made alpha a hard 1/0 step, visible as a gray fringe now that it fades smoothly.
+			blending: NoBlending,
 			side: DoubleSide,
 			vertexShader: /* glsl */ `
 				attribute vec2 sourceUV;
@@ -63,8 +77,16 @@ export class FootprintRasterizer {
 			fragmentShader: /* glsl */ `
 				varying vec2 vSourceUV;
 				uniform sampler2D sketchTex;
+				uniform sampler2D regionMask;
 				void main() {
-					gl_FragColor = texture2D(sketchTex, vSourceUV);
+					vec4 color = texture2D(sketchTex, vSourceUV);
+					// GrowBoundaryEdgesModifier extrapolates source UVs past the patch's real boundary so
+					// search hits landing just past the edge still resolve to *some* UV (a coverage
+					// margin) - regionMask (see PatchRegionMaskRasterizer) is the patch's true, un-grown
+					// footprint, blurred, so those extrapolated samples fade to transparent here instead
+					// of baking in whatever the sketch texture's wrap mode happens to sample out there.
+					float mask = texture2D(regionMask, vSourceUV).r;
+					gl_FragColor = vec4(color.rgb, color.a * mask);
 				}
 			`,
 		})

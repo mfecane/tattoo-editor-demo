@@ -1,4 +1,5 @@
 'use client'
+import { AppliedPieceSettings } from '@/editor/components/AppliedPieceSettings'
 import { AppliedPieceThumbnail } from '@/editor/components/AppliedPieceThumbnail'
 import { useReactBridgeContext } from '@/editor/hooks/useReactBridge'
 import { Piece } from '@/editor/main/PlacedMeshList'
@@ -25,7 +26,7 @@ export function AppliedPieceItem({ piece, thumbnailService }: AppliedPieceItemPr
 	}
 
 	const handleClick = (): void => {
-		reactBridge?.setSelectedPlacedMeshId(piece.id)
+		reactBridge?.requestSelectPlacedMesh(piece.id)
 	}
 
 	return (
@@ -35,12 +36,14 @@ export function AppliedPieceItem({ piece, thumbnailService }: AppliedPieceItemPr
 			style={style}
 			{...attributes}
 			{...listeners}
-			onClick={handleClick}
-			className={`flex h-32 w-32 bg-neutral-900 shrink-0 touch-none select-none items-center justify-center rounded transition-shadow cursor-grab active:cursor-grabbing ${
-				isSelected ? 'ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-800' : 'hover:ring-1 hover:ring-neutral-600'
+			className={`flex h-32 bg-neutral-900 shrink-0 touch-none select-none items-stretch justify-center rounded transition-shadow cursor-grab active:cursor-grabbing ${
+				isSelected
+					? 'ring-2 ring-blue-400 ring-offset-1 ring-offset-gray-800'
+					: 'hover:ring-1 hover:ring-neutral-600'
 			}`}
 		>
-			<AppliedPieceThumbnail piece={piece} thumbnailService={thumbnailService} />
+			<AppliedPieceSettings piece={piece} />
+			<AppliedPieceThumbnail piece={piece} thumbnailService={thumbnailService} onClick={handleClick} />
 		</div>
 	)
 }

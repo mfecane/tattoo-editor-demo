@@ -1,6 +1,7 @@
 'use client'
 import { Loader } from '@/components/ui/loader'
 import { AppliedPiecesStack } from '@/editor/components/AppliedPiecesStack'
+import { EditorBlockingOverlay } from '@/editor/components/EditorBlockingOverlay'
 import { EditorPanel } from '@/editor/components/EditorPanel'
 import { RegionSelectionModal } from '@/editor/components/RegionSelectionModal'
 import { useEditorLoader } from '@/editor/hooks/useEditorLoader'
@@ -52,6 +53,7 @@ export function Editor({ projectId }: EditorProps) {
 						{editorStore.editor && <EditorToolbar />}
 						{editorStore.editor && <InstructionOverlay />}
 						{editorStore.editor && <AppliedPiecesStack />}
+						{editorStore.editor && <EditorBlockingOverlay />}
 					</div>
 					<EditorPanel />
 				</div>

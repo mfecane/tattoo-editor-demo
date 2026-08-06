@@ -7,6 +7,7 @@ import { DragInteractionHandler } from '@/editor/interaction/handlers/DragIntera
 import { HoverInteractionHandler } from '@/editor/interaction/handlers/HoverInteractionHandler'
 import { MovePlacedMeshInteractionHandler } from '@/editor/interaction/handlers/MovePlacedMeshInteractionHandler'
 import { OrbitInteractionHandler } from '@/editor/interaction/handlers/OrbitInteractionHandler'
+import { PlacementGuardInteractionHandler } from '@/editor/interaction/handlers/PlacementGuardInteractionHandler'
 import { PlacementInteractionHandler } from '@/editor/interaction/handlers/PlacementInteractionHandler'
 import { ResizePlacedMeshInteractionHandler } from '@/editor/interaction/handlers/ResizePlacedMeshInteractionHandler'
 import { RotatePlacedMeshInteractionHandler } from '@/editor/interaction/handlers/RotatePlacedMeshInteractionHandler'
@@ -55,6 +56,7 @@ export class CanvasEventHandler {
 		this.mouse = new Vector2()
 		this.context = new InteractionContext(this.editor)
 		this.handlers = [
+			new PlacementGuardInteractionHandler(this.editor),
 			new SelectionInteractionHandler(this.editor),
 			new ResizePlacedMeshInteractionHandler(this.editor),
 			new RotatePlacedMeshInteractionHandler(this.editor),

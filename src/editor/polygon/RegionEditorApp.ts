@@ -56,7 +56,9 @@ export class RegionEditorApp {
 		this.app = app
 		container.appendChild(app.canvas)
 
-		const texture: Texture = await Assets.load(imageUrl)
+		// imageUrl may be a blob: URL (uploaded file) with no recognizable extension, so the
+		// resolver can't detect the right parser from the URL alone - force it explicitly.
+		const texture: Texture = await Assets.load({ src: imageUrl, parser: 'texture' })
 		if (this.destroyed) {
 			return
 		}

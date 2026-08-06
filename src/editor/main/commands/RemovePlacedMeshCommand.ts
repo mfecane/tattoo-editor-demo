@@ -33,7 +33,14 @@ export class RemovePlacedMeshCommand implements EditorCommand {
 		this.execute()
 	}
 
+	/**
+	 * Only true when the removed piece was applied (drapedPatch) - removing a regionMesh still in
+	 * placement mode (never wrapped, or unwrapped and never wrapped back) must not produce a
+	 * history step, since undoing it would resurrect a piece stuck in placement mode (see
+	 * AddPlacedMeshCommand). That removal simply isn't tracked; discarding an unapplied piece is
+	 * final.
+	 */
 	public isUndoable(): boolean {
-		return true
+		return this.removedEntry?.kind === 'drapedPatch'
 	}
 }

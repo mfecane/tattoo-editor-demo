@@ -30,6 +30,17 @@ export function SelectionContextMenu() {
 
 	return (
 		<div data-id="selection-context-menu" className="rounded bg-neutral-900 flex gap-2 p-2 items-center">
+			<ConfirmModal
+				isOpen={state.discardConfirmVisible}
+				title={state.selectedPlacedMeshEverWrapped ? 'Cancel placement?' : 'Discard piece?'}
+				description="This piece hasn't been applied yet. Continuing removes it from the canvas."
+				confirmText={state.selectedPlacedMeshEverWrapped ? 'Cancel placement' : 'Discard'}
+				cancelText="Keep editing"
+				confirmVariant="danger"
+				onCancel={() => reactBridge.cancelDiscard()}
+				onConfirm={() => reactBridge.confirmDiscard()}
+			/>
+
 			<TooltipProvider>
 				{isWrapped && <FalloffRadiusControl />}
 				{isWrapped && <RelaxControl />}

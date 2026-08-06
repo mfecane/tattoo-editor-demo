@@ -1,3 +1,4 @@
+import { MESH_BAKE_CONSTANTS } from '@/editor/constants'
 import { MeshSnapshot, snapshotMesh } from '@/editor/main/MeshSnapshot'
 import { RegionShape } from '@/editor/polygon/RegionShape'
 import { Mesh, Texture, WebGLRenderTarget } from 'three'
@@ -15,8 +16,12 @@ export class Piece {
 	public texture: Texture
 	public sketchAspect: number
 	public stackIndex: number
+	/** Contrast multiplier applied to this piece's layer when composited onto the body texture - see BodyTextureComposer.renderMultiplyOver. */
+	public contrast: number
 	/** Whether a live wrap preview is currently valid for this mesh. */
 	public wrapPreviewValid: boolean | null
+	/** Whether this piece has ever been wrapped (applied) at least once - stays true through makeUnwrapped(), unlike kind/flatBackup, so a regionMesh being re-edited after Unwrap can still be told apart from one that was never applied. */
+	public everWrapped: boolean
 	/** drapedPatch-only: the mesh's flat, unwrapped geometry + transform, captured at wrap time so unwrap can revert to this state. */
 	public flatBackup?: MeshSnapshot
 	/** drapedPatch-only: true whenever this patch's draped geometry has changed since its last reverse-bake (wrap/relax/vertex-slide). */
@@ -34,7 +39,9 @@ export class Piece {
 		texture: Texture
 		sketchAspect: number
 		stackIndex: number
+		contrast: number
 		wrapPreviewValid: boolean | null
+		everWrapped: boolean
 		flatBackup?: MeshSnapshot
 		bakeDirty?: boolean
 		bakedTarget?: WebGLRenderTarget | null
@@ -47,7 +54,9 @@ export class Piece {
 		this.texture = params.texture
 		this.sketchAspect = params.sketchAspect
 		this.stackIndex = params.stackIndex
+		this.contrast = params.contrast
 		this.wrapPreviewValid = params.wrapPreviewValid
+		this.everWrapped = params.everWrapped
 		this.flatBackup = params.flatBackup
 		this.bakeDirty = params.bakeDirty
 		this.bakedTarget = params.bakedTarget
@@ -74,7 +83,9 @@ export class PlacedMeshList {
 				texture,
 				sketchAspect,
 				stackIndex: this.entries.length,
+				contrast: MESH_BAKE_CONSTANTS.DEFAULT_LAYER_CONTRAST,
 				wrapPreviewValid: null,
+				everWrapped: false,
 			})
 		)
 	}
@@ -107,6 +118,7 @@ export class PlacedMeshList {
 		}
 		entry.kind = 'drapedPatch'
 		entry.mesh = mesh
+		entry.everWrapped = true
 		entry.flatBackup = snapshotMesh(mesh)
 		entry.bakeDirty = true
 		entry.bakedTarget = null
@@ -145,6 +157,14 @@ export class PlacedMeshList {
 			return
 		}
 		entry.wrapPreviewValid = valid
+	}
+
+	public setContrast(id: string, contrast: number): void {
+		const entry = this.getById(id)
+		if (!entry) {
+			return
+		}
+		entry.contrast = contrast
 	}
 
 	public moveEntry(fromIndex: number, toIndex: number): void {

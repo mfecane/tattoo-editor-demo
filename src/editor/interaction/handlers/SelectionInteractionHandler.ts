@@ -2,11 +2,9 @@ import { CanvasEventType } from '@/editor/interaction/CanvasEventType'
 import { InteractionEvent } from '@/editor/interaction/InteractionEvent'
 import { InteractionHandler } from '@/editor/interaction/InteractionHandler'
 import { InteractionHandlerResult } from '@/editor/interaction/InteractionHandlerResult'
-import { worldToScreen } from '@/editor/lib/utils'
 import { SelectWidgetPayload } from '@/editor/lib/widget/SelectWidget'
 import { Editor } from '@/editor/main/Editor'
 import { HitResult } from '@/editor/main/HitTester'
-import { Vector2 } from 'three'
 
 export class SelectionInteractionHandler implements InteractionHandler {
 	public id: string = 'selection'
@@ -41,16 +39,15 @@ export class SelectionInteractionHandler implements InteractionHandler {
 					// Goes through ReactBridge (not a bare controller mutation) so the
 					// bridge's cached selectedPlacedMeshId/selectedPlacedMeshWrapped stay
 					// in sync - the context menu and hint text read those, not the controller.
-					this.editor.reactBridge.setSelectedPlacedMeshId(entry.id)
-					const screenPos = worldToScreen(entry.mesh.position, this.editor.camera, this.editor.getDomElement())
-					this.editor.reactBridge.setSelectionContextMenuPosition(new Vector2(screenPos.x, screenPos.y))
+					// Selecting drives the context menu's position/visibility along with it - see
+					// ReactBridge.setSelectedPlacedMeshId.
+					this.editor.reactBridge.requestSelectPlacedMesh(entry.id)
 					return new InteractionHandlerResult().setHandled()
 				}
 			}
 		}
 
-		this.editor.reactBridge.setSelectionContextMenuPosition(null)
-		this.editor.reactBridge.setSelectedPlacedMeshId(null)
+		this.editor.reactBridge.requestSelectPlacedMesh(null)
 
 		return new InteractionHandlerResult().setPass()
 	}

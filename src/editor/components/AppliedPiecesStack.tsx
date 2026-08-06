@@ -17,6 +17,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 export function AppliedPiecesStack() {
 	const reactBridge = useReactBridgeContext()
@@ -83,9 +84,14 @@ export function AppliedPiecesStack() {
 						))}
 					</div>
 				</SortableContext>
-				<DragOverlay>
-					{draggingPiece && <AppliedPieceThumbnail piece={draggingPiece} thumbnailService={thumbnailService} />}
-				</DragOverlay>
+				{createPortal(
+					<DragOverlay>
+						{draggingPiece && (
+							<AppliedPieceThumbnail piece={draggingPiece} thumbnailService={thumbnailService} />
+						)}
+					</DragOverlay>,
+					document.body
+				)}
 			</DndContext>
 		</div>
 	)

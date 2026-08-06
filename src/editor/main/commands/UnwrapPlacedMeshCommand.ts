@@ -48,7 +48,13 @@ export class UnwrapPlacedMeshCommand implements EditorCommand {
 		this.execute()
 	}
 
+	/**
+	 * Always false, even on success - unwrapping always results in a regionMesh sitting in
+	 * placement mode, and that state must never be something undo/redo can produce (see
+	 * AddPlacedMeshCommand). The drapedPatch it came from stays reachable only through whatever
+	 * WrapPlacedMeshCommand originally applied it - re-wrapping (not undo) is the way back.
+	 */
 	public isUndoable(): boolean {
-		return this.applied
+		return false
 	}
 }

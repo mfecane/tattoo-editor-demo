@@ -8,9 +8,10 @@ import { WebGLRenderer } from 'three'
 interface AppliedPieceThumbnailProps {
 	piece: Piece
 	thumbnailService: PieceThumbnailService
+	onClick?(): void
 }
 
-export function AppliedPieceThumbnail({ piece, thumbnailService }: AppliedPieceThumbnailProps) {
+export function AppliedPieceThumbnail({ piece, thumbnailService, onClick }: AppliedPieceThumbnailProps) {
 	const reactBridge = useReactBridgeContext()
 	const [thumbnail, setThumbnail] = useState<string | null>(null)
 
@@ -28,6 +29,7 @@ export function AppliedPieceThumbnail({ piece, thumbnailService }: AppliedPieceT
 			alt={`Applied piece ${piece.stackIndex + 1}`}
 			draggable={false}
 			className="block h-32 w-32 rounded object-cover"
+			onClick={onClick}
 		/>
 	)
 }

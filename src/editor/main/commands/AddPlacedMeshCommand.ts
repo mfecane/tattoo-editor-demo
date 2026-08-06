@@ -29,8 +29,15 @@ export class AddPlacedMeshCommand implements EditorCommand {
 		this.execute()
 	}
 
+	/**
+	 * Always false - placing a mesh always results in a regionMesh sitting in placement mode
+	 * (not yet applied/wrapped), and that state must never be something undo/redo can produce or
+	 * land on (see PlacementGuardInteractionHandler/ReactBridge.guardAgainstUnresolvedPlacement -
+	 * the only way out of placement mode is Apply or the discard confirmation, never undo). History
+	 * only starts tracking a piece once WrapPlacedMeshCommand successfully applies it.
+	 */
 	public isUndoable(): boolean {
-		return true
+		return false
 	}
 
 	public getPlacedMeshId(): string {

@@ -1,5 +1,4 @@
 import { MESH_WRAP_CONSTANTS, VERTEX_SLIDE_CONSTANTS } from '@/editor/constants'
-import { worldToScreen } from '@/editor/lib/utils'
 import { SurfaceTangentBasis } from '@/editor/lib/utils/SurfaceTangentBasis'
 import { WrapPreviewGhost } from '@/editor/lib/widget/WrapPreviewGhost'
 import { Editor } from '@/editor/main/Editor'
@@ -15,7 +14,7 @@ import { SelectTool } from '@/editor/main/tools/SelectTool'
 import { TransformTool } from '@/editor/main/tools/TransformTool'
 import { EditorToolId, IEditorTool } from '@/editor/main/tools/EditorTool'
 import { RegionShape } from '@/editor/polygon/RegionShape'
-import { BufferGeometry, Intersection, Mesh, Texture, TextureLoader, Vector2 } from 'three'
+import { BufferGeometry, Intersection, Mesh, Texture, TextureLoader } from 'three'
 
 export interface SketchEditorTarget {
 	sketchId: string
@@ -182,6 +181,12 @@ export class EditorController {
 		this.slideVertexFalloffRadius = radius
 	}
 
+	/** Live setting (not undo-tracked), immediately re-composited - see ReactBridge.setPlacedMeshContrast. */
+	public setPlacedMeshContrast(id: string, contrast: number): void {
+		this.project.placedMeshList.setContrast(id, contrast)
+		this.refreshBakeAndVisibility()
+	}
+
 	public openRegionEditor(target: SketchEditorTarget): void {
 		this.state.sketchEditorTarget = target
 		this.notifySubscribers()
@@ -248,12 +253,11 @@ export class EditorController {
 		// instead of leaving the user to hunt for the blue select dot after placing. Also force
 		// widgets back on - the toggle only ever hides selection handles (it's disabled whenever
 		// something is selected), so a prior toggle-off would otherwise leave the new piece's
-		// transform handles invisible too.
+		// transform handles invisible too. setSelectedPlacedMeshId positions/shows the context menu
+		// itself - see ReactBridge.setSelectedPlacedMeshId.
 		this.editor.reactBridge.setWidgetsVisible(true)
 		const placedMeshId = command.getPlacedMeshId()
 		this.editor.reactBridge.setSelectedPlacedMeshId(placedMeshId)
-		const screenPos = worldToScreen(mesh.position, this.editor.camera, this.editor.getDomElement())
-		this.editor.reactBridge.setSelectionContextMenuPosition(new Vector2(screenPos.x, screenPos.y))
 	}
 
 	public deleteSelectedPlacedMesh(): void {

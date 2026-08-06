@@ -120,6 +120,30 @@ export const MESH_BAKE_CONSTANTS = {
 	// Which UVSearchAlgorithm PatchBaker uses - flip for A/B comparison. See RaycastUVSearch vs
 	// ClosestPointUVSearch (docs/baking-algorithm.md).
 	UV_SEARCH_ALGORITHM: 'closest-point' as 'raycast' | 'closest-point',
+
+	// Default for Piece.contrast - the multiplier applied to a piece's own bakedLayer during
+	// BodyTextureComposer's multiply-over pass. 1 leaves the layer untouched.
+	DEFAULT_LAYER_CONTRAST: 1,
+} as const
+
+export const REGION_MASK_CONSTANTS = {
+	// Resolution (both dimensions) of the patch's un-grown UV footprint mask - see
+	// PatchRegionMaskRasterizer. Deliberately far below BAKE_RESOLUTION: the mask only needs to
+	// mark where the design texture is actually authored, and it's blurred immediately after
+	// anyway, so a small render target is both cheaper and sufficient.
+	MASK_RESOLUTION: 512,
+
+	// Blur radius in texels (of MASK_RESOLUTION), applied separably (horizontal then vertical) -
+	// feathers the mask's edge so two adjacent bakes fade into each other instead of meeting at a
+	// hard seam.
+	BLUR_RADIUS_TEXELS: 3,
+
+	// Margin in texels (of MASK_RESOLUTION), measured inward from the mask texture's own UV-space
+	// border (u/v = 0 or 1), over which the mask is forced to fade to zero. The rasterized footprint
+	// can legitimately touch or fill that border (e.g. a design using the full sketch texture), in
+	// which case there's no footprint edge left for BLUR_RADIUS_TEXELS to feather - this margin
+	// guarantees a soft falloff at the true edge of the design regardless.
+	EDGE_FADE_TEXELS: 8,
 } as const
 
 export const RAYCAST_UV_SEARCH_CONSTANTS = {
@@ -174,6 +198,17 @@ export const VERTEX_SLIDE_CONSTANTS = {
 
 	// Wireframe overlay of the selected wrapped mesh's actual triangle edges.
 	WIREFRAME_COLOR: 0xff8800,
+} as const
+
+export const PLACEMENT_CURSOR_CONSTANTS = {
+	// Arrow shown over the body mesh while the placement tool is active, tip touching the
+	// hovered surface point and shaft standing off along its normal - see PlacementCursorArrow.
+	HEAD_LENGTH: 0.05,
+	HEAD_RADIUS: 0.02,
+	SHAFT_LENGTH: 0.09,
+	SHAFT_RADIUS: 0.006,
+	COLOR: 0x4a90e2,
+	OPACITY: 0.85,
 } as const
 
 export const PLACED_MESH_CONSTANTS = {

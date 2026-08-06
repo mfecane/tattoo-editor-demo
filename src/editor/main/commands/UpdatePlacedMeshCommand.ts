@@ -51,8 +51,15 @@ export class UpdatePlacedMeshCommand implements EditorCommand {
 		this.apply(this.after)
 	}
 
+	/**
+	 * Always false - TransformTool (the only source of this command) exclusively targets a
+	 * regionMesh in placement mode (see the class comment above), so every transform it produces
+	 * is still-unapplied, ephemeral draft state that must never be undo/redo-able on its own. Only
+	 * the eventual Apply (WrapPlacedMeshCommand) becomes a history step; undoing that reverts to
+	 * whatever transform was last live at wrap time, not to any intermediate drag/resize.
+	 */
 	public isUndoable(): boolean {
-		return true
+		return false
 	}
 
 	private apply(transform: PlacedMeshTransform): void {

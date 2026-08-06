@@ -3,8 +3,9 @@ import { InteractionEvent } from '@/editor/interaction/InteractionEvent'
 import { InteractionHandler } from '@/editor/interaction/InteractionHandler'
 import { InteractionHandlerResult } from '@/editor/interaction/InteractionHandlerResult'
 import { IHandle } from '@/editor/lib/widget/IWidget'
+import { SurfaceTangentBasis } from '@/editor/lib/utils/SurfaceTangentBasis'
 import { Editor } from '@/editor/main/Editor'
-import { HitResultType, PlacedMeshVertexPayload } from '@/editor/main/HitTester'
+import { HitResult, HitResultType, PlacedMeshVertexPayload } from '@/editor/main/HitTester'
 
 export class HoverInteractionHandler implements InteractionHandler {
 	public id: string = 'hover'
@@ -39,6 +40,7 @@ export class HoverInteractionHandler implements InteractionHandler {
 		}
 
 		this.updateVertexHover(hitResult)
+		this.updatePlacementCursor(hitResult)
 
 		return new InteractionHandlerResult().setHandled()
 	}
@@ -56,5 +58,30 @@ export class HoverInteractionHandler implements InteractionHandler {
 		} else {
 			overlay.setHoveredIndex(null)
 		}
+	}
+
+	/** While the placement tool is active, points its cursor arrow at the hovered surface point - hidden once the cursor leaves the body. */
+	private updatePlacementCursor(hitResult: HitResult | null): void {
+		if (this.editor.controller.getActiveTool() !== this.editor.controller.getPlacementTool()) {
+			return
+		}
+
+		const arrow = this.editor.controller.getPlacementTool().getCursorArrow()
+		if (!arrow) {
+			return
+		}
+
+		if (hitResult?.type !== HitResultType.SelectableObject || !hitResult.intersection) {
+			arrow.hide()
+			return
+		}
+
+		const basis = SurfaceTangentBasis.fromIntersection(hitResult.intersection, this.editor.previewMesh.mesh)
+		if (!basis) {
+			arrow.hide()
+			return
+		}
+
+		arrow.update(hitResult.intersection.point, basis.normal)
 	}
 }

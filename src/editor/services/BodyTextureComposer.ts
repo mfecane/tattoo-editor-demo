@@ -38,7 +38,7 @@ export class BodyTextureComposer {
 			let readTarget = this.compositeTargetA!
 			let writeTarget = this.compositeTargetB!
 			for (const layer of layers) {
-				this.renderMultiplyOver(currentSource, layer.bakedTarget!.texture, writeTarget)
+				this.renderMultiplyOver(currentSource, layer.bakedTarget!.texture, layer.contrast, writeTarget)
 				currentSource = writeTarget.texture
 				;[readTarget, writeTarget] = [writeTarget, readTarget]
 			}
@@ -60,10 +60,10 @@ export class BodyTextureComposer {
 		this.compositeTargetB = new WebGLRenderTarget(MESH_BAKE_CONSTANTS.BAKE_RESOLUTION, MESH_BAKE_CONSTANTS.BAKE_RESOLUTION)
 	}
 
-	/** Layer multiplies over base where the layer has coverage (layer.a), straight (non-premultiplied) alpha. */
-	private renderMultiplyOver(base: Texture, layer: Texture, target: WebGLRenderTarget): void {
+	/** Layer multiplies over base where the layer has coverage (layer.a), straight (non-premultiplied) alpha, with the layer's own contrast (Piece.contrast) adjusted first. */
+	private renderMultiplyOver(base: Texture, layer: Texture, contrast: number, target: WebGLRenderTarget): void {
 		const material = new ShaderMaterial({
-			uniforms: { uBase: { value: base }, uLayer: { value: layer } },
+			uniforms: { uBase: { value: base }, uLayer: { value: layer }, uContrast: { value: contrast } },
 			vertexShader: /* glsl */ `
 				varying vec2 vUv;
 				void main() {
@@ -75,10 +75,12 @@ export class BodyTextureComposer {
 				varying vec2 vUv;
 				uniform sampler2D uBase;
 				uniform sampler2D uLayer;
+				uniform float uContrast;
 				void main() {
 					vec4 base = texture2D(uBase, vUv);
 					vec4 layer = texture2D(uLayer, vUv);
-					vec3 multiplied = base.rgb * layer.rgb;
+					vec3 contrasted = clamp((layer.rgb - 0.5) * uContrast + 0.5, 0.0, 1.0);
+					vec3 multiplied = base.rgb * contrasted;
 					vec3 outColor = mix(base.rgb, multiplied, layer.a);
 					float outAlpha = layer.a + base.a * (1.0 - layer.a);
 					gl_FragColor = vec4(outColor, outAlpha);

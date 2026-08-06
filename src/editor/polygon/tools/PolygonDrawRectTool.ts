@@ -12,6 +12,7 @@ export class PolygonDrawRectTool implements IPolygonTool {
 	public enterTool(): void {
 		this.controller.discardOpenPolygon()
 		this.controller.deselectAll()
+		this.controller.beginDrawRect()
 
 		const canvasEventHandler = this.controller.getCanvasEventHandler()
 		for (const handlerId of PolygonDrawRectTool.HANDLER_IDS) {
